@@ -1,0 +1,238 @@
+use crate::commands::Command;
+use crate::db::SledViewer;
+use anyhow::Result;
+use colored::*;
+use rustyline::completion::{Completer, Pair};
+use rustyline::config::Configurer;
+use rustyline::error::ReadlineError;
+use rustyline::history::FileHistory;
+use rustyline::{CompletionType, Context, Editor, Helper};
+
+struct SledCompleter {
+    keys: Vec<String>,
+}
+
+impl SledCompleter {
+    fn new() -> Self {
+        Self { keys: Vec::new() }
+    }
+
+    fn update_keys(&mut self, keys: Vec<String>) {
+        self.keys = keys;
+    }
+}
+
+impl Completer for SledCompleter {
+    type Candidate = Pair;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        _ctx: &Context<'_>,
+    ) -> rustyline::Result<(usize, Vec<Pair>)> {
+        let line_up_to_cursor = &line[..pos];
+        
+        // Parse the command to see if we can complete keys
+        let parts: Vec<&str> = line_up_to_cursor.split_whitespace().collect();
+        
+        if parts.len() >= 2 {
+            let command = parts[0].to_lowercase();
+            if command == "get" || (command == "list" && parts.len() >= 2 && parts[1] != "regex") || (command == "search" && parts.len() >= 2 && parts[1] != "regex") {
+                // We're completing a key - find the current word being typed
+                let current_word = if let Some(last_space) = line_up_to_cursor.rfind(' ') {
+                    &line_up_to_cursor[last_space + 1..]
+                } else {
+                    ""
+                };
+                
+                let mut candidates = Vec::new();
+                for key in &self.keys {
+                    if key.starts_with(current_word) {
+                        candidates.push(Pair {
+                            display: key.clone(),
+                            replacement: key.clone(),
+                        });
+                    }
+                }
+                
+                // Calculate the start position for replacement
+                let start = if let Some(last_space) = line_up_to_cursor.rfind(' ') {
+                    last_space + 1
+                } else {
+                    0
+                };
+                
+                return Ok((start, candidates));
+            }
+        }
+        
+        // Fallback to command completion
+        let commands = vec!["count", "list", "get", "search", "help", "exit", "quit"];
+        let mut candidates = Vec::new();
+        
+        if let Some(word_start) = line_up_to_cursor.rfind(' ') {
+            let word = &line_up_to_cursor[word_start + 1..];
+            for cmd in commands {
+                if cmd.starts_with(word) {
+                    candidates.push(Pair {
+                        display: cmd.to_string(),
+                        replacement: cmd.to_string(),
+                    });
+                }
+            }
+            Ok((word_start + 1, candidates))
+        } else {
+            for cmd in commands {
+                if cmd.starts_with(line_up_to_cursor) {
+                    candidates.push(Pair {
+                        display: cmd.to_string(),
+                        replacement: cmd.to_string(),
+                    });
+                }
+            }
+            Ok((0, candidates))
+        }
+    }
+}
+
+// Minimal Helper implementation
+impl Helper for SledCompleter {
+    type Hint = String;
+    
+    fn hint(&self, _line: &str, _pos: usize, _ctx: &Context<'_>) -> Option<String> {
+        None
+    }
+    
+    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
+        &'s self,
+        prompt: &'p str,
+        _default: bool,
+    ) -> std::borrow::Cow<'b, str> {
+        std::borrow::Cow::Borrowed(prompt)
+    }
+    
+    fn highlight<'l>(
+        &self,
+        line: &'l str,
+        _pos: usize,
+    ) -> std::borrow::Cow<'l, str> {
+        std::borrow::Cow::Borrowed(line)
+    }
+    
+    fn highlight_char(&self, _line: &str, _pos: usize, _forced: bool) -> bool {
+        false
+    }
+    
+    fn validate(
+        &self,
+        _ctx: &mut rustyline::validate::ValidationContext,
+    ) -> rustyline::Result<rustyline::validate::ValidationResult> {
+        Ok(rustyline::validate::ValidationResult::Valid(None))
+    }
+    
+    fn validate_while_typing(&self) -> bool {
+        false
+    }
+}
+
+pub struct Repl {
+    editor: Editor<SledCompleter, FileHistory>,
+    viewer: SledViewer,
+}
+
+impl Repl {
+    pub fn new(viewer: SledViewer) -> Self {
+        let mut editor = Editor::<SledCompleter, FileHistory>::new().expect("Failed to create readline editor");
+        let helper = SledCompleter::new();
+        editor.set_helper(Some(helper));
+        editor.set_completion_type(CompletionType::Circular);
+        
+        Self { editor, viewer }
+    }
+
+    pub fn run(&mut self) -> Result<()> {
+        println!();
+        println!(
+            "{}",
+            "Interactive SLED Database Viewer".bright_cyan().bold()
+        );
+        println!(
+            "{}",
+            "Type 'help' for available commands or 'exit' to quit.".bright_black()
+        );
+        println!(
+            "{}",
+            "Use TAB to autocomplete key names.".bright_black()
+        );
+        println!();
+
+        // Load all keys for completion
+        if let Ok(keys) = self.viewer.list_keys("*", false) {
+            if let Some(helper) = self.editor.helper_mut() {
+                helper.update_keys(keys);
+            }
+        }
+
+        loop {
+            let readline = self.editor.readline("> ");
+
+            match readline {
+                Ok(line) => {
+                    let line = line.trim();
+                    if line.is_empty() {
+                        continue;
+                    }
+
+                    // Add to history
+                    if let Err(e) = self.editor.add_history_entry(line) {
+                        eprintln!("Warning: Failed to add to history: {e}");
+                    }
+
+                    match Command::parse(line) {
+                        Some(Command::Exit) => {
+                            println!("{}", "Goodbye!".bright_green());
+                            break;
+                        }
+                        Some(command) => {
+                            if let Err(e) = command.execute(&self.viewer) {
+                                println!(
+                                    "{} {}",
+                                    "Error:".bright_red().bold(),
+                                    e.to_string().red()
+                                );
+                            }
+                            // Reload keys after any command in case database changed
+                            if let Ok(keys) = self.viewer.list_keys("*", false) {
+                                if let Some(helper) = self.editor.helper_mut() {
+                                    helper.update_keys(keys);
+                                }
+                            }
+                        }
+                        None => {
+                            println!(
+                                "{} Unknown command: '{}'. Type 'help' for available commands.",
+                                "Error:".bright_red().bold(),
+                                line.bright_yellow()
+                            );
+                        }
+                    }
+                }
+                Err(ReadlineError::Interrupted) => {
+                    println!("{}", "Goodbye!".bright_green());
+                    break;
+                }
+                Err(ReadlineError::Eof) => {
+                    println!("{}", "Goodbye!".bright_green());
+                    break;
+                }
+                Err(err) => {
+                    println!("{} {}", "Error:".bright_red().bold(), err);
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}

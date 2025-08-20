@@ -73,6 +73,25 @@ impl Command {
         }
     }
 
+    fn format_value_preview(info: &KeyInfo) -> String {
+        if !info.is_utf8 {
+            return "(binary data)".red().to_string();
+        }
+
+        if info.value.is_empty() {
+            return "(empty)".bright_black().to_string();
+        }
+
+        // For short values, show them fully
+        if info.value.len() <= 50 {
+            return info.value.bright_green().to_string();
+        }
+
+        // For longer values, show a preview with truncation
+        let preview = info.value.chars().take(47).collect::<String>();
+        format!("{}...", preview).bright_green().to_string()
+    }
+
     pub fn execute(&self, viewer: &SledViewer) -> Result<()> {
         match self {
             Command::Count => {
@@ -88,17 +107,51 @@ impl Command {
                 if keys.is_empty() {
                     println!("{}", "No keys found matching the pattern.".yellow());
                 } else {
+                    let total_count = keys.len();
+                    let display_keys = if total_count > 50 {
+                        &keys[0..50]
+                    } else {
+                        &keys
+                    };
+                    
                     println!(
                         "{} {} {}",
                         "Found".bright_blue(),
-                        keys.len().to_string().bright_yellow().bold(),
+                        total_count.to_string().bright_yellow().bold(),
                         "keys:".bright_blue()
                     );
-                    for (i, key) in keys.iter().enumerate() {
+                    
+                    for (i, key) in display_keys.iter().enumerate() {
+                        // Get value preview for each key
+                        match viewer.get_key(key) {
+                            Ok(info) => {
+                                let preview = Self::format_value_preview(&info);
+                                println!(
+                                    "  {}: {} = {}",
+                                    (i + 1).to_string().bright_black(),
+                                    key.bright_white(),
+                                    preview
+                                );
+                            }
+                            Err(_) => {
+                                // Key might have been deleted, just show key name
+                                println!(
+                                    "  {}: {} = {}",
+                                    (i + 1).to_string().bright_black(),
+                                    key.bright_white(),
+                                    "(error reading value)".red()
+                                );
+                            }
+                        }
+                    }
+                    
+                    if total_count > 50 {
                         println!(
-                            "  {}: {}",
-                            (i + 1).to_string().bright_black(),
-                            key.bright_white()
+                            "{}",
+                            format!(
+                                "... and {} more keys (showing first 50)",
+                                total_count - 50
+                            ).bright_yellow()
                         );
                     }
                 }
@@ -227,6 +280,10 @@ fn print_help() {
     println!(
         "{:<20} Show this help message",
         "help".bright_green().bold()
+    );
+    println!(
+        "{:<20} Show key completions for a command",
+        "complete <cmd>".bright_green().bold()
     );
     println!("{:<20} Exit the application", "exit".bright_green().bold());
 
