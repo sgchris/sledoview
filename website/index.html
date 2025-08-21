@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SledoView - CRUD Operations for SLED Databases</title>
+    <meta name="description" content="A powerful console application for performing CRUD operations on SLED database files through an interactive terminal interface.">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Hero Section -->
+        <header class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="logo">🔍</span>
+                    SledoView
+                </h1>
+                <p class="hero-subtitle">
+                    A powerful console application for performing <strong>CRUD operations</strong> on SLED database files
+                </p>
+                <p class="hero-description">
+                    Interactive terminal interface with colorized output, pattern matching, and comprehensive validation
+                </p>
+                <div class="hero-buttons">
+                    <a href="https://github.com/sgchris/sledoview" class="btn btn-primary" target="_blank">
+                        <svg height="16" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="16" data-view-component="true" class="octicon octicon-mark-github v-align-middle">
+                            <path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path>
+                        </svg>
+                        View on GitHub
+                    </a>
+                    <a href="#installation" class="btn btn-secondary">
+                        <span class="btn-icon">⚡</span>
+                        Get Started
+                    </a>
+                </div>
+                <div class="download-section">
+                    <p class="download-label">Download for:</p>
+                    <div class="download-buttons">
+                        <a href="downloads/sledoview.exe" class="btn-download" download>
+                            🪟 Windows
+                        </a>
+                        <a href="downloads/sledoview" class="btn-download" download>
+                            🐧 Linux
+                        </a>
+                        <a href="downloads/sledoview" class="btn-download" download>
+                            🍎 macOS
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-demo">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-buttons">
+                            <span class="btn-close"></span>
+                            <span class="btn-minimize"></span>
+                            <span class="btn-maximize"></span>
+                        </div>
+                        <div class="terminal-title">SledoView Terminal</div>
+                    </div>
+                    <div class="terminal-body">
+                        <pre><code class="terminal-content">$ sledoview my-database.db
+
+<span class="text-cyan">SledoView - SLED Database Viewer</span>
+<span class="text-cyan">═══════════════════════════════════</span>
+<span class="text-green">✓ Database validation passed</span>
+<span class="text-green">✓ Successfully opened database: my-database.db</span>
+<span class="text-green">✓ Database is writable - modification commands available</span>
+
+<span class="text-blue">Interactive SLED Database Viewer</span>
+Type 'help' for available commands or 'exit' to quit.
+
+<span class="text-gray">> </span><span class="typing-text">set user_123 "John Doe"</span>
+<span class="text-green">✓ Successfully set key 'user_123'</span>
+
+<span class="text-gray">> </span>get user_123
+<span class="text-cyan">Key: user_123</span>
+<span class="text-cyan">Size: 8 bytes</span>
+<span class="text-cyan">UTF-8: Yes</span>
+<span class="text-cyan">Value:</span>
+<span class="text-white">John Doe</span>
+
+<span class="text-gray">> </span>list user_*
+<span class="text-yellow">Found 3 keys:</span>
+<span class="text-white">  1: user_001</span>
+<span class="text-white">  2: user_123</span>
+<span class="text-white">  3: user_admin</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Features Section -->
+        <section class="features">
+            <h2 class="section-title">Why Choose SledoView?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Interactive REPL</h3>
+                    <p>Browse your SLED database with a user-friendly terminal interface and TAB completion</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✏️</div>
+                    <h3>CRUD Operations</h3>
+                    <p>Create, Read, Update, and Delete key-value pairs with immediate persistence</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔎</div>
+                    <h3>Pattern Matching</h3>
+                    <p>Search keys and values using glob patterns or regular expressions</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>Colorized Output</h3>
+                    <p>Beautiful, colored terminal output for better readability and user experience</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔓</div>
+                    <h3>Write Operations</h3>
+                    <p>Safely modify database contents with proper validation and error handling</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧪</div>
+                    <h3>Well Tested</h3>
+                    <p>Extensive test suite with 40+ tests ensuring reliability and stability</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Commands Section -->
+        <section class="commands">
+            <h2 class="section-title">Available Commands</h2>
+            <div class="commands-grid">
+                <div class="command-card">
+                    <div class="command-header">
+                        <code class="command-name">set &lt;key&gt; &lt;value&gt;</code>
+                        <span class="command-type">Create/Update</span>
+                    </div>
+                    <p class="command-description">Set or update a key-value pair in the database</p>
+                    <div class="command-example">
+                        <pre><code>> set user_name "John Doe"
+<span class="text-green">✓ Successfully set key 'user_name'</span></code></pre>
+                    </div>
+                </div>
+
+                <div class="command-card">
+                    <div class="command-header">
+                        <code class="command-name">get &lt;key&gt;</code>
+                        <span class="command-type">Read</span>
+                    </div>
+                    <p class="command-description">Retrieve detailed information about a specific key</p>
+                    <div class="command-example">
+                        <pre><code>> get user_name
+<span class="text-cyan">Key: user_name</span>
+<span class="text-cyan">Size: 8 bytes</span>
+<span class="text-white">Value: John Doe</span></code></pre>
+                    </div>
+                </div>
+
+                <div class="command-card">
+                    <div class="command-header">
+                        <code class="command-name">delete &lt;key&gt;</code>
+                        <span class="command-type">Delete</span>
+                    </div>
+                    <p class="command-description">Delete a key from the database</p>
+                    <div class="command-example">
+                        <pre><code>> delete temp_data
+<span class="text-green">✓ Successfully deleted key 'temp_data'</span></code></pre>
+                    </div>
+                </div>
+
+                <div class="command-card">
+                    <div class="command-header">
+                        <code class="command-name">list [pattern]</code>
+                        <span class="command-type">Browse</span>
+                    </div>
+                    <p class="command-description">List keys matching a pattern (supports glob and regex)</p>
+                    <div class="command-example">
+                        <pre><code>> list user_*
+<span class="text-yellow">Found 3 keys:</span>
+<span class="text-white">  1: user_001</span>
+<span class="text-white">  2: user_123</span></code></pre>
+                    </div>
+                </div>
+
+                <div class="command-card">
+                    <div class="command-header">
+                        <code class="command-name">search &lt;pattern&gt;</code>
+                        <span class="command-type">Search</span>
+                    </div>
+                    <p class="command-description">Search for entries where values match a pattern</p>
+                    <div class="command-example">
+                        <pre><code>> search *@gmail.com
+<span class="text-yellow">Found 2 matches:</span>
+<span class="text-white">  email => john@gmail.com</span></code></pre>
+                    </div>
+                </div>
+
+                <div class="command-card">
+                    <div class="command-header">
+                        <code class="command-name">count</code>
+                        <span class="command-type">Info</span>
+                    </div>
+                    <p class="command-description">Display total number of records in database</p>
+                    <div class="command-example">
+                        <pre><code>> count
+<span class="text-yellow">Total records: 1,532</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Installation Section -->
+        <section id="installation" class="installation">
+            <h2 class="section-title">Getting Started</h2>
+            
+            <div class="quick-download">
+                <h3>Quick Download</h3>
+                <p>Download pre-built executables for immediate use, or build from source for the latest features.</p>
+                <div class="quick-download-buttons">
+                    <a href="downloads/sledoview.exe" class="btn-download-small" download>
+                        <span class="download-icon">🪟</span>
+                        Windows
+                    </a>
+                    <a href="downloads/sledoview" class="btn-download-small" download>
+                        <span class="download-icon">🐧</span>
+                        Linux
+                    </a>
+                    <a href="downloads/sledoview" class="btn-download-small" download>
+                        <span class="download-icon">🍎</span>
+                        macOS (temp)
+                    </a>
+                </div>
+            </div>
+            
+            <div class="install-content">
+                <div class="install-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Clone the Repository</h3>
+                        <div class="code-block">
+                            <pre><code class="bash">git clone https://github.com/sgchris/sledoview
+cd sledoview</code></pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this)">📋</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="install-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Build the Application</h3>
+                        <div class="code-block">
+                            <pre><code class="bash">cargo build --release</code></pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this)">📋</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="install-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Run SledoView</h3>
+                        <div class="code-block">
+                            <pre><code class="bash"># Linux/macOS
+./target/release/sledoview /path/to/your/database.db
+
+# Windows
+.\target\release\sledoview.exe C:\path\to\your\database.db</code></pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this)">📋</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="requirements">
+                <h3>Requirements</h3>
+                <ul>
+                    <li><strong>Rust 1.70+</strong> (2021 edition)</li>
+                    <li><strong>Cargo</strong> build system</li>
+                    <li><strong>SLED database files</strong> to work with</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Contributing Section -->
+        <section class="contributing">
+            <h2 class="section-title">Join the Community</h2>
+            <div class="contributing-content">
+                <div class="contribute-card">
+                    <div class="contribute-icon">🚀</div>
+                    <h3>Contribute Code</h3>
+                    <p>Help improve SledoView by adding features, fixing bugs, or improving documentation</p>
+                    <a href="https://github.com/sgchris/sledoview" class="contribute-link" target="_blank">
+                        View Issues →
+                    </a>
+                </div>
+                <div class="contribute-card">
+                    <div class="contribute-icon">🐛</div>
+                    <h3>Report Bugs</h3>
+                    <p>Found a bug or have a feature request? Let us know on GitHub Issues</p>
+                    <a href="https://github.com/sgchris/sledoview/issues" class="contribute-link" target="_blank">
+                        Report Issue →
+                    </a>
+                </div>
+                <div class="contribute-card">
+                    <div class="contribute-icon">📖</div>
+                    <h3>Improve Docs</h3>
+                    <p>Help others learn SledoView by improving documentation and examples</p>
+                    <a href="https://github.com/sgchris/sledoview/blob/master/README.md" class="contribute-link" target="_blank">
+                        Edit README →
+                    </a>
+                </div>
+            </div>
+
+            <div class="contribution-guidelines">
+                <h3>Contributing Guidelines</h3>
+                <ol>
+                    <li>Fork the repository and create a feature branch</li>
+                    <li>Write tests for your changes</li>
+                    <li>Ensure all tests pass with <code>cargo test</code></li>
+                    <li>Follow Rust formatting conventions with <code>cargo fmt</code></li>
+                    <li>Check for linting issues with <code>cargo clippy</code></li>
+                    <li>Submit a Pull Request with a clear description</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>SledoView</h4>
+                    <p>A powerful console application for SLED database CRUD operations</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://github.com/sgchris/sledoview" target="_blank">GitHub Repository</a></li>
+                        <li><a href="https://github.com/sgchris/sledoview/issues" target="_blank">Issues & Bug Reports</a></li>
+                        <li><a href="https://github.com/sgchris/sledoview/blob/master/README.md" target="_blank">Documentation</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Technology</h4>
+                    <ul>
+                        <li><a href="https://github.com/spacejam/sled" target="_blank">SLED Database</a></li>
+                        <li><a href="https://www.rust-lang.org/" target="_blank">Rust Language</a></li>
+                        <li><a href="https://github.com/kkawakam/rustyline" target="_blank">Rustyline</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 SledoView. Licensed under the MIT License.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+</html>
