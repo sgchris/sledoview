@@ -1,37 +1,27 @@
 # SledoView
 
-[![Crates.io](https://img.shields.io/crates/v/sledoview.svg)](https://crates.io/crates/sledoview)
-[![Documentation](https://docs.rs/sledoview/badge.svg)](https://docs.rs/sledoview)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/yourusername/sledoview)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/sgchris/sledoview)
 
-A powerful CLI tool for viewing and managing SLED databases with an interactive terminal interface.
+A powerful console application for performing CRUD operations on SLED database files through an interactive terminal interface.
 
 ## Features
 
 - 🔍 **Interactive REPL** - Browse your SLED database with a user-friendly terminal interface
-- 📊 **Database Statistics** - Get total record counts and key information
 - 🔎 **Pattern Matching** - Search keys and values using glob patterns or regular expressions
-- ✏️ **Database Modification** - Set and delete key-value pairs with proper validation
-- 🎨 **Colorized Output** - Beautiful, colored terminal output for better readability
+- ✏️ **CRUD Operations** - Create, Read, Update, and Delete key-value pairs
 - � **Write Operations** - Safely modify database contents with immediate persistence
-- ✅ **Comprehensive Validation** - Thorough database file validation and key validation
-- 🧪 **Well Tested** - Extensive test suite ensuring reliability
 
 ## Installation
-
-### From Crates.io
-
-```bash
-cargo install sledoview
-```
 
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/sledoview
+git clone https://github.com/sgchris/sledoview
 cd sledoview
-cargo install --path .
+cargo build --release
 ```
+
+The executable will be available at `target/release/sledoview` (or `target/release/sledoview.exe` on Windows).
 
 ## Usage
 
@@ -44,15 +34,16 @@ sledoview /path/to/your/sled.db
 Upon successful validation and opening, you'll see:
 
 ```
-SledoView - SLED Database Viewer
+SledoView - SLED Database Client
 ═══════════════════════════════════
 Validating database...
 ✓ Database validation passed
 ✓ Successfully opened database: /path/to/your/sled.db
 ✓ Database is writable - modification commands available
 
-Interactive SLED Database Viewer
+Interactive SLED Database Client
 Type 'help' for available commands or 'exit' to quit.
+Use TAB for completion, type partial keys and TAB to auto-complete!
 
 > 
 ```
@@ -153,6 +144,8 @@ Delete a key from the database. The operation will be immediately persisted to d
 > delete nonexistent
 ✗ Key 'nonexistent' not found
 ```
+
+#### `get <key>`
 Retrieve detailed information about a specific key, including its value, size, and UTF-8 validity.
 
 **Examples:**
@@ -214,27 +207,7 @@ Display the help message with all available commands.
 #### `exit` / `quit` / `q`
 Exit the application.
 
-## Database Validation
-
-SledoView performs comprehensive validation before opening a database:
-
-- ✅ **File Existence** - Verifies the database path exists
-- ✅ **Directory Structure** - Ensures it's a directory (SLED databases are directories)
-- ✅ **SLED Format** - Validates the internal structure contains SLED-specific files
-- ✅ **Read Permissions** - Checks file system permissions
-- ✅ **Lock Status** - Ensures the database isn't locked by another process
-
 ## Output Examples
-
-### Successful Database Opening
-```
-SledoView - SLED Database Viewer
-═══════════════════════════════════
-Validating database...
-✓ Database validation passed
-✓ Successfully opened database: /home/user/myapp.db
-✓ Database is writable - modification commands available
-```
 
 ### Command Examples
 ```bash
@@ -272,18 +245,6 @@ Found 5 matches:
   5: user_email_005 => user005@gmail.com
 ```
 
-## Error Handling
-
-SledoView provides clear, colored error messages for various scenarios:
-
-- ❌ **Database not found**: Clear message when the specified path doesn't exist
-- ❌ **Invalid SLED database**: Helpful guidance when the directory isn't a valid SLED database
-- ❌ **Permission denied**: Clear indication of permission issues
-- ❌ **Database locked**: Informative message when another process has locked the database
-- ❌ **Invalid regex**: Helpful error messages for malformed regular expressions
-- ❌ **Invalid key**: Clear validation messages for keys that don't meet requirements
-- ❌ **Write permission errors**: Informative messages when write operations fail
-
 ## Development
 
 ### Prerequisites
@@ -294,7 +255,7 @@ SledoView provides clear, colored error messages for various scenarios:
 ### Building
 
 ```bash
-git clone https://github.com/yourusername/sledoview
+git clone https://github.com/sgchris/sledoview
 cd sledoview
 cargo build --release
 ```
@@ -310,7 +271,7 @@ cargo test
 The project includes comprehensive tests covering:
 
 - Database validation logic
-- All CLI commands and their variations (including set/delete operations)
+- All CLI commands and their variations (including CRUD operations)
 - Pattern matching (both glob and regex)
 - Quote parsing and argument handling
 - Key validation logic
@@ -344,27 +305,10 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 
 ## License
 
-This project is licensed under either of
-
-- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-MIT) file for details.
 
 ## Acknowledgments
 
 - [SLED](https://github.com/spacejam/sled) - The embedded database that makes this tool possible
 - [Rustyline](https://github.com/kkawakam/rustyline) - For the excellent REPL functionality
 - [Colored](https://github.com/mackwic/colored) - For beautiful terminal colors
-
-## Changelog
-
-### v0.1.0
-- Initial release
-- Basic SLED database viewing functionality
-- Set and delete operations with quote parsing
-- Interactive REPL with colored output and TAB completion
-- Pattern matching for keys and values
-- Key validation and write permission checking
-- Comprehensive database validation
-- Full test suite with unit and integration tests

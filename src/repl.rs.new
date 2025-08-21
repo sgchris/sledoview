@@ -155,7 +155,7 @@ impl Repl {
         println!();
         println!(
             "{}",
-            "Interactive SLED Database Viewer".bright_cyan().bold()
+            "Interactive SLED Database Client".bright_cyan().bold()
         );
         println!(
             "{}",
