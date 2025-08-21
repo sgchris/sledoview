@@ -115,6 +115,34 @@ impl SledViewer {
         results.sort_by(|a, b| a.key.cmp(&b.key));
         Ok(results)
     }
+
+    /// Set a key-value pair in the database
+    pub fn set_key(&self, key: &str, value: &str) -> Result<()> {
+        self.db.insert(key.as_bytes(), value.as_bytes())?;
+        self.db.flush()?;
+        Ok(())
+    }
+
+    /// Delete a key from the database
+    pub fn delete_key(&self, key: &str) -> Result<bool> {
+        let existed = self.db.remove(key.as_bytes())?.is_some();
+        self.db.flush()?;
+        Ok(existed)
+    }
+
+    /// Check if the database is writable
+    pub fn is_writable(&self) -> bool {
+        // Try a test operation to check if the database is writable
+        match self.db.insert(b"__sledoview_test__", b"test") {
+            Ok(_) => {
+                // Clean up the test key
+                let _ = self.db.remove(b"__sledoview_test__");
+                let _ = self.db.flush();
+                true
+            }
+            Err(_) => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -213,5 +241,70 @@ mod tests {
         let debug_str = format!("{:?}", pair);
         assert!(debug_str.contains("test"));
         assert!(debug_str.contains("value"));
+    }
+
+    #[test]
+    fn test_set_key() {
+        let temp_dir = create_test_db();
+        let viewer = SledViewer::new(temp_dir.path()).unwrap();
+        
+        // Test setting a new key
+        assert!(viewer.set_key("new_key", "new_value").is_ok());
+        
+        // Verify the key was set
+        let info = viewer.get_key("new_key").unwrap();
+        assert_eq!(info.key, "new_key");
+        assert_eq!(info.value, "new_value");
+        
+        // Test updating an existing key
+        assert!(viewer.set_key("new_key", "updated_value").is_ok());
+        let info = viewer.get_key("new_key").unwrap();
+        assert_eq!(info.value, "updated_value");
+    }
+
+    #[test]
+    fn test_delete_key() {
+        let temp_dir = create_test_db();
+        let viewer = SledViewer::new(temp_dir.path()).unwrap();
+        
+        // First, set a key
+        viewer.set_key("test_delete", "value").unwrap();
+        assert!(viewer.get_key("test_delete").is_ok());
+        
+        // Test deleting an existing key
+        let existed = viewer.delete_key("test_delete").unwrap();
+        assert!(existed);
+        
+        // Verify the key was deleted
+        assert!(viewer.get_key("test_delete").is_err());
+        
+        // Test deleting a non-existent key
+        let existed = viewer.delete_key("non_existent").unwrap();
+        assert!(!existed);
+    }
+
+    #[test]
+    fn test_is_writable() {
+        let temp_dir = create_test_db();
+        let viewer = SledViewer::new(temp_dir.path()).unwrap();
+        
+        // Database should be writable in tests
+        assert!(viewer.is_writable());
+    }
+
+    #[test]
+    fn test_set_with_special_characters() {
+        let temp_dir = create_test_db();
+        let viewer = SledViewer::new(temp_dir.path()).unwrap();
+        
+        // Test with spaces and special characters
+        assert!(viewer.set_key("key with spaces", "value with spaces").is_ok());
+        let info = viewer.get_key("key with spaces").unwrap();
+        assert_eq!(info.value, "value with spaces");
+        
+        // Test with quotes and escapes
+        assert!(viewer.set_key("quote_key", "value with \"quotes\"").is_ok());
+        let info = viewer.get_key("quote_key").unwrap();
+        assert_eq!(info.value, "value with \"quotes\"");
     }
 }

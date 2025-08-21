@@ -36,6 +36,15 @@ fn main() -> Result<()> {
     // Open the database
     let viewer = SledViewer::new(&args.database_path)?;
 
+    // Check if database is writable
+    if !viewer.is_writable() {
+        println!(
+            "{} {}",
+            "⚠".bright_yellow().bold(),
+            "Database opened in read-only mode (write operations will fail)".bright_yellow()
+        );
+    }
+
     println!(
         "{} {}",
         "✓".bright_green().bold(),

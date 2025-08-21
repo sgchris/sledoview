@@ -134,3 +134,76 @@ fn test_cli_nonexistent_database() {
         .failure()
         .stderr(predicate::str::contains("Database file not found"));
 }
+
+#[test]
+fn test_sled_viewer_set_key() {
+    let temp_dir = common::create_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+    
+    // Test setting a new key
+    assert!(viewer.set_key("new_test_key", "new_test_value").is_ok());
+    
+    // Verify the key was set
+    let key_info = viewer.get_key("new_test_key").unwrap();
+    assert_eq!(key_info.key, "new_test_key");
+    assert_eq!(key_info.value, "new_test_value");
+    
+    // Test updating an existing key
+    assert!(viewer.set_key("user_001", "Updated John Doe").is_ok());
+    let key_info = viewer.get_key("user_001").unwrap();
+    assert_eq!(key_info.value, "Updated John Doe");
+}
+
+#[test]
+fn test_sled_viewer_delete_key() {
+    let temp_dir = common::create_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+    
+    // Verify key exists before deletion
+    assert!(viewer.get_key("user_001").is_ok());
+    
+    // Test deleting an existing key
+    let existed = viewer.delete_key("user_001").unwrap();
+    assert!(existed);
+    
+    // Verify the key was deleted
+    assert!(viewer.get_key("user_001").is_err());
+    
+    // Test deleting a non-existent key
+    let existed = viewer.delete_key("nonexistent_key").unwrap();
+    assert!(!existed);
+}
+
+#[test]
+fn test_sled_viewer_set_with_spaces() {
+    let temp_dir = common::create_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+    
+    // Test setting keys and values with spaces
+    assert!(viewer.set_key("key with spaces", "value with spaces").is_ok());
+    
+    let key_info = viewer.get_key("key with spaces").unwrap();
+    assert_eq!(key_info.key, "key with spaces");
+    assert_eq!(key_info.value, "value with spaces");
+}
+
+#[test]
+fn test_sled_viewer_set_with_quotes() {
+    let temp_dir = common::create_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+    
+    // Test setting values with quotes
+    assert!(viewer.set_key("quote_key", "value with \"quotes\"").is_ok());
+    
+    let key_info = viewer.get_key("quote_key").unwrap();
+    assert_eq!(key_info.value, "value with \"quotes\"");
+}
+
+#[test]
+fn test_sled_viewer_is_writable() {
+    let temp_dir = common::create_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+    
+    // Test database should be writable
+    assert!(viewer.is_writable());
+}

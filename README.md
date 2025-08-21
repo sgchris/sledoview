@@ -11,9 +11,10 @@ A powerful CLI tool for viewing and managing SLED databases with an interactive 
 - 🔍 **Interactive REPL** - Browse your SLED database with a user-friendly terminal interface
 - 📊 **Database Statistics** - Get total record counts and key information
 - 🔎 **Pattern Matching** - Search keys and values using glob patterns or regular expressions
+- ✏️ **Database Modification** - Set and delete key-value pairs with proper validation
 - 🎨 **Colorized Output** - Beautiful, colored terminal output for better readability
-- 🔒 **Read-Only Access** - Safe database browsing without risk of data modification
-- ✅ **Comprehensive Validation** - Thorough database file validation before opening
+- � **Write Operations** - Safely modify database contents with immediate persistence
+- ✅ **Comprehensive Validation** - Thorough database file validation and key validation
 - 🧪 **Well Tested** - Extensive test suite ensuring reliability
 
 ## Installation
@@ -48,6 +49,7 @@ SledoView - SLED Database Viewer
 Validating database...
 ✓ Database validation passed
 ✓ Successfully opened database: /path/to/your/sled.db
+✓ Database is writable - modification commands available
 
 Interactive SLED Database Viewer
 Type 'help' for available commands or 'exit' to quit.
@@ -99,7 +101,58 @@ List keys matching a regular expression pattern.
 > list regex .*\d.*
 ```
 
-#### `get <key>`
+#### `set <key> <value>`
+Set or update a key-value pair in the database. The operation will be immediately persisted to disk.
+
+**Key Validation Rules:**
+- Must contain only alphanumeric characters, `_`, `-`, `.`, `:`, `/`, and spaces
+- Maximum length of 512 characters
+- Cannot be empty
+
+**Quoting Support:**
+- Use double quotes to include spaces in keys or values
+- Escape quotes within quoted strings with backslash: `\"`
+- Examples of valid quoted usage:
+  - `"key with spaces"` 
+  - `"value with \"quotes\""`
+  - `"path/to/config"`
+
+**Examples:**
+```bash
+# Set a simple key-value pair
+> set user_name "John Doe"
+✓ Successfully set key 'user_name'
+
+# Set a key with spaces (using quotes)
+> set "user settings" "{'theme': 'dark', 'lang': 'en'}"
+✓ Successfully set key 'user settings'
+
+# Update an existing key
+> set config_timeout 3600
+✓ Successfully set key 'config_timeout'
+
+# Set a complex value with quotes
+> set message "He said \"Hello, World!\""
+✓ Successfully set key 'message'
+```
+
+#### `delete <key>`
+Delete a key from the database. The operation will be immediately persisted to disk.
+
+**Examples:**
+```bash
+# Delete a simple key
+> delete user_temp
+✓ Successfully deleted key 'user_temp'
+
+# Delete a key with spaces (using quotes)  
+> delete "temporary setting"
+✓ Successfully deleted key 'temporary setting'
+
+# Try to delete a non-existent key
+> delete nonexistent
+✗ Key 'nonexistent' not found
+```
 Retrieve detailed information about a specific key, including its value, size, and UTF-8 validity.
 
 **Examples:**
@@ -180,6 +233,7 @@ SledoView - SLED Database Viewer
 Validating database...
 ✓ Database validation passed
 ✓ Successfully opened database: /home/user/myapp.db
+✓ Database is writable - modification commands available
 ```
 
 ### Command Examples
@@ -192,6 +246,22 @@ Found 3 keys:
   1: user_001
   2: user_002  
   3: user_admin
+
+> set new_user "Alice Smith"
+✓ Successfully set key 'new_user'
+
+> get new_user
+═══════════════════════════════════════════════════════
+Key: new_user
+Size: 11 bytes
+UTF-8: Yes
+Value:
+───────────────────────────────────────────────────────
+Alice Smith
+═══════════════════════════════════════════════════════
+
+> delete temp_key
+✓ Successfully deleted key 'temp_key'
 
 > search *@gmail.com
 Found 5 matches:
@@ -211,6 +281,8 @@ SledoView provides clear, colored error messages for various scenarios:
 - ❌ **Permission denied**: Clear indication of permission issues
 - ❌ **Database locked**: Informative message when another process has locked the database
 - ❌ **Invalid regex**: Helpful error messages for malformed regular expressions
+- ❌ **Invalid key**: Clear validation messages for keys that don't meet requirements
+- ❌ **Write permission errors**: Informative messages when write operations fail
 
 ## Development
 
@@ -238,8 +310,11 @@ cargo test
 The project includes comprehensive tests covering:
 
 - Database validation logic
-- All CLI commands and their variations
+- All CLI commands and their variations (including set/delete operations)
 - Pattern matching (both glob and regex)
+- Quote parsing and argument handling
+- Key validation logic
+- Write operations and persistence
 - Error handling scenarios
 - Binary data handling
 - Edge cases (empty databases, non-existent keys, etc.)
@@ -287,7 +362,9 @@ at your option.
 ### v0.1.0
 - Initial release
 - Basic SLED database viewing functionality
-- Interactive REPL with colored output
+- Set and delete operations with quote parsing
+- Interactive REPL with colored output and TAB completion
 - Pattern matching for keys and values
+- Key validation and write permission checking
 - Comprehensive database validation
-- Full test suite
+- Full test suite with unit and integration tests

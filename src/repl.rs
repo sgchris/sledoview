@@ -38,7 +38,10 @@ impl rustyline::completion::Completer for SledCompleter {
         
         if parts.len() >= 2 {
             let command = parts[0].to_lowercase();
-            if command == "get" || (command == "list" && parts.len() >= 2 && parts[1] != "regex") || (command == "search" && parts.len() >= 2 && parts[1] != "regex") {
+            if command == "get" || command == "delete" || command == "del" || 
+               (command == "set" && parts.len() == 2) ||
+               (command == "list" && parts.len() >= 2 && parts[1] != "regex") || 
+               (command == "search" && parts.len() >= 2 && parts[1] != "regex") {
                 // We're completing a key - find the current word being typed
                 let current_word = if let Some(last_space) = line_up_to_cursor.rfind(' ') {
                     &line_up_to_cursor[last_space + 1..]
@@ -68,7 +71,7 @@ impl rustyline::completion::Completer for SledCompleter {
         }
         
         // Fallback to command completion
-        let commands = vec!["count", "list", "get", "search", "help", "exit", "quit"];
+        let commands = vec!["count", "list", "get", "set", "delete", "del", "search", "help", "exit", "quit"];
         let mut candidates = Vec::new();
         
         if let Some(word_start) = line_up_to_cursor.rfind(' ') {
@@ -137,7 +140,10 @@ impl Repl {
         
         if parts.len() >= 2 {
             let command = parts[0].to_lowercase();
-            if command == "get" || (command == "list" && parts.len() >= 2 && parts[1] != "regex") || (command == "search" && parts.len() >= 2 && parts[1] != "regex") {
+            if command == "get" || command == "delete" || command == "del" || 
+               (command == "set" && parts.len() == 2) ||
+               (command == "list" && parts.len() >= 2 && parts[1] != "regex") || 
+               (command == "search" && parts.len() >= 2 && parts[1] != "regex") {
                 // Find the current word being typed
                 let prefix = parts.last().copied().unwrap_or("");
                 
@@ -179,7 +185,8 @@ impl Repl {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 2 {
             let command = parts[0].to_lowercase();
-            if command == "get" || command == "list" || command == "search" {
+            if command == "get" || command == "delete" || command == "del" || command == "list" || command == "search" || 
+               (command == "set" && parts.len() == 2) {
                 let prefix = parts.last().copied().unwrap_or("");
                 // Show hint if we have a partial key that could be completed
                 return !prefix.is_empty() && self.keys.iter().any(|k| k.starts_with(prefix) && k != prefix);
