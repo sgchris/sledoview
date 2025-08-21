@@ -157,6 +157,10 @@ body {
     align-items: center;
 }
 
+.hero-subtitle a {
+    color: inherit;
+}
+
 .terminal {
     background: #1a1a1a;
     border-radius: 12px;
