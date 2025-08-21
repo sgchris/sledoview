@@ -1,14 +1,21 @@
 [package]
 name = "sledoview"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
-description = "A CLI tool for viewing and managing SLED databases"
+authors = ["Gregory Chris <sgchris@gmail.com>"]
+description = "A CLI tool for viewing and managing SLED database files"
 license = "MIT"
-repository = "https://github.com/yourusername/sledoview"
+repository = "https://github.com/sgchris/sledoview"
 readme = "README.md"
 keywords = ["sled", "database", "cli", "viewer"]
 categories = ["command-line-utilities", "database"]
+homepage = "https://sledoview.greq.me/"
+
+[package.metadata.wix]
+upgrade-guid = "3F6DF45D-26A3-4B8D-BEDD-0573A0F488C5"
+path-guid = "EA5739B2-6265-4AB7-AC1B-0A9DACCB2485"
+license = false
+eula = false
 
 [[bin]]
 name = "sledoview"
@@ -33,3 +40,8 @@ thiserror = "1.0"
 tempfile = "3.0"
 assert_cmd = "2.0"
 predicates = "3.0"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
