@@ -139,6 +139,9 @@ jobs:
       - name: Install dependencies
         run: |
           ${{ matrix.packages_install }}
+      - name: Install WiX Toolset
+        if: runner.os == 'Windows'
+        uses: joncloud/wix-action@v1
       - name: Build artifacts
         run: |
           # Actually do builds and make zips and whatnot
