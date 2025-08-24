@@ -26,6 +26,15 @@ pub enum SledoViewError {
     #[error("Database operation failed: {message}")]
     DatabaseOperation { message: String },
 
+    #[error("Tree not found: {name}")]
+    TreeNotFound { name: String },
+
+    #[error("No tree selected")]
+    NoTreeSelected,
+
+    #[error("Tree operation failed: {message}")]
+    TreeOperation { message: String },
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -56,6 +65,14 @@ mod tests {
             key: "missing_key".to_string(),
         };
         assert_eq!(err.to_string(), "Key not found: missing_key");
+
+        let err = SledoViewError::TreeNotFound {
+            name: "missing_tree".to_string(),
+        };
+        assert_eq!(err.to_string(), "Tree not found: missing_tree");
+
+        let err = SledoViewError::NoTreeSelected;
+        assert_eq!(err.to_string(), "No tree selected");
     }
 
     #[test]

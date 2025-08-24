@@ -7,9 +7,11 @@ A powerful console application for performing CRUD operations on SLED database f
 ## Features
 
 - 🔍 **Interactive REPL** - Browse your SLED database with a user-friendly terminal interface
-- 🔎 **Pattern Matching** - Search keys and values using glob patterns or regular expressions
-- ✏️ **CRUD Operations** - Create, Read, Update, and Delete key-value pairs
-- � **Write Operations** - Safely modify database contents with immediate persistence
+- 🌳 **Tree Management** - Work with named trees for organized data storage and isolation
+- 🔎 **Pattern Matching** - Search keys, values, and trees using glob patterns or regular expressions
+- ✏️ **CRUD Operations** - Create, Read, Update, and Delete key-value pairs in any tree
+- 📝 **Write Operations** - Safely modify database contents with immediate persistence
+- 🎯 **Tree Selection** - Switch between trees with visual prompt indicators
 
 ## Installation
 
@@ -46,6 +48,11 @@ Type 'help' for available commands or 'exit' to quit.
 Use TAB for completion, type partial keys and TAB to auto-complete!
 
 > 
+```
+
+When a tree is selected, the prompt will show the tree name:
+```
+[settings]> 
 ```
 
 ### Available Commands
@@ -201,6 +208,156 @@ Search for entries where the **value** matches a regular expression.
 > search regex \{"name":\s*"[^"]+".*\}
 ```
 
+### Tree Management Commands
+
+SLED databases support multiple named trees for organizing data. Trees provide complete isolation - keys in one tree don't affect keys in another tree. When no tree is selected, operations work on the default tree.
+
+#### `trees [pattern]`
+List all trees in the database, optionally filtered by pattern.
+
+**Examples:**
+```bash
+# List all trees
+> trees
+Found 5 trees:
+  settings
+  sessions
+  cache
+  logs
+  metrics
+
+# List trees matching a pattern
+> trees *_data
+Found 2 trees:
+  binary_data
+  test_data
+
+# List trees starting with "user"
+> trees user*
+Found 3 trees:
+  user_profiles
+  user_sessions
+  user_preferences
+```
+
+#### `trees regex <pattern>`
+List trees matching a regular expression pattern.
+
+**Examples:**
+```bash
+# List trees with numbers
+> trees regex .*\d+
+Found 2 trees:
+  cache_v2
+  session_store_1
+
+# List trees ending with specific suffixes
+> trees regex .*(data|cache)$
+Found 4 trees:
+  user_data
+  temp_cache
+  binary_data
+  session_cache
+```
+
+#### `select <tree>`
+Select a tree to work with. All subsequent CRUD operations (list, get, set, delete, search) will operate only on the selected tree.
+
+**Examples:**
+```bash
+# Select a tree
+> select settings
+✓ Selected tree: settings
+[settings]> 
+
+# Now all operations work on the 'settings' tree
+[settings]> count
+Total records: 15
+
+[settings]> list
+Found 15 keys:
+  1: app.theme = dark
+  2: app.language = en-US
+  3: ui.sidebar_width = 250
+  ...
+
+# Set a key in the selected tree
+[settings]> set debug.enabled true
+✓ Successfully set key debug.enabled
+```
+
+#### `unselect`
+Return to working with the default tree. After unselecting, operations will work on keys that aren't in any named tree.
+
+**Examples:**
+```bash
+[settings]> unselect
+✓ Tree unselected. Now working with the default tree.
+> 
+
+# If no tree was selected
+> unselect
+! No tree was previously selected.
+```
+
+### Tree Operation Examples
+
+```bash
+# Check default tree content
+> count
+Total records: 10
+
+> list
+Found 10 keys:
+  1: user:001
+  2: user:002
+  3: config:main
+  ...
+
+# Switch to settings tree
+> select settings
+✓ Selected tree: settings
+[settings]> count
+Total records: 5
+
+[settings]> set theme dark
+✓ Successfully set key theme
+
+# Switch to different tree
+[settings]> select sessions  
+✓ Selected tree: sessions
+[sessions]> count
+Total records: 23
+
+[sessions]> list sess_*
+Found 12 keys:
+  1: sess_abc123
+  2: sess_def456
+  ...
+
+# Return to default tree
+[sessions]> unselect
+✓ Tree unselected. Now working with the default tree.
+> count
+Total records: 10
+
+# The key we set in settings tree isn't in default tree
+> get theme
+✗ Key 'theme' not found
+
+# But it's still in the settings tree
+> select settings
+[settings]> get theme
+═══════════════════════════════════════════════════════
+Key: theme
+Size: 4 bytes
+UTF-8: Yes
+Value:
+───────────────────────────────────────────────────────
+dark
+═══════════════════════════════════════════════────────
+```
+
 #### `help`
 Display the help message with all available commands.
 
@@ -209,7 +366,7 @@ Exit the application.
 
 ## Output Examples
 
-### Command Examples
+### Basic Command Examples
 ```bash
 > count
 Total records: 150
@@ -231,7 +388,7 @@ UTF-8: Yes
 Value:
 ───────────────────────────────────────────────────────
 Alice Smith
-═══════════════════════════════════════════════════════
+═══════════════════════════════════════════════────────
 
 > delete temp_key
 ✓ Successfully deleted key 'temp_key'
@@ -243,6 +400,45 @@ Found 5 matches:
   3: contact_primary => support@gmail.com
   4: backup_email => backup@gmail.com
   5: user_email_005 => user005@gmail.com
+```
+
+### Tree Management Examples
+```bash
+> trees
+Found 8 trees:
+  binary_data
+  cache
+  configuration
+  logs
+  metrics
+  sessions
+  settings
+  test_data
+
+> select settings
+✓ Selected tree: settings
+[settings]> list app.*
+Found 3 keys:
+  1: app.language = en-US
+  2: app.theme = dark
+  3: app.timeout = 3600
+
+[settings]> set app.version "2.1.0"
+✓ Successfully set key app.version
+
+[settings]> select sessions
+✓ Selected tree: sessions
+[sessions]> count
+Total records: 45
+
+[sessions]> trees *data*
+Found 2 trees:
+  binary_data
+  test_data
+
+[sessions]> unselect
+✓ Tree unselected. Now working with the default tree.
+> 
 ```
 
 ## Development

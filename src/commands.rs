@@ -70,13 +70,17 @@ fn validate_key(key: &str) -> Result<(), String> {
     // These are commonly safe characters for database keys
     for ch in key.chars() {
         if !ch.is_ascii_alphanumeric() && !matches!(ch, '_' | '-' | '.' | ':' | '/' | ' ') {
-            return Err(format!("Invalid character '{}' in key. Allowed: a-z, A-Z, 0-9, _, -, ., :, /, space", ch));
+            return Err(format!(
+                "Invalid character '{}' in key. Allowed: a-z, A-Z, 0-9, _, -, ., :, /, space",
+                ch
+            ));
         }
     }
 
     Ok(())
 }
 
+#[derive(Debug)]
 pub enum Command {
     Count,
     List { pattern: String, is_regex: bool },
@@ -84,6 +88,9 @@ pub enum Command {
     Set { key: String, value: String },
     Delete { key: String },
     Search { pattern: String, is_regex: bool },
+    Trees { pattern: String, is_regex: bool },
+    Select { tree: String },
+    Unselect,
     Help,
     Exit,
 }
@@ -163,6 +170,36 @@ impl Command {
                     None
                 }
             }
+            "trees" => {
+                if args.len() == 1 {
+                    Some(Command::Trees {
+                        pattern: "*".to_string(),
+                        is_regex: false,
+                    })
+                } else if args.len() == 2 {
+                    Some(Command::Trees {
+                        pattern: args[1].clone(),
+                        is_regex: false,
+                    })
+                } else if args.len() == 3 && args[1] == "regex" {
+                    Some(Command::Trees {
+                        pattern: args[2].clone(),
+                        is_regex: true,
+                    })
+                } else {
+                    None
+                }
+            }
+            "select" => {
+                if args.len() >= 2 {
+                    Some(Command::Select {
+                        tree: args[1].clone(),
+                    })
+                } else {
+                    None
+                }
+            }
+            "unselect" => Some(Command::Unselect),
             "help" | "?" => Some(Command::Help),
             "exit" | "quit" | "q" => Some(Command::Exit),
             _ => None,
@@ -188,7 +225,7 @@ impl Command {
         format!("{}...", preview).bright_green().to_string()
     }
 
-    pub fn execute(&self, viewer: &SledViewer) -> Result<()> {
+    pub fn execute(&self, viewer: &mut SledViewer) -> Result<()> {
         match self {
             Command::Count => {
                 let count = viewer.count()?;
@@ -209,14 +246,14 @@ impl Command {
                     } else {
                         &keys
                     };
-                    
+
                     println!(
                         "{} {} {}",
                         "Found".bright_blue(),
                         total_count.to_string().bright_yellow().bold(),
                         "keys:".bright_blue()
                     );
-                    
+
                     for (i, key) in display_keys.iter().enumerate() {
                         // Get value preview for each key
                         match viewer.get_key(key) {
@@ -240,14 +277,12 @@ impl Command {
                             }
                         }
                     }
-                    
+
                     if total_count > 50 {
                         println!(
                             "{}",
-                            format!(
-                                "... and {} more keys (showing first 50)",
-                                total_count - 50
-                            ).bright_yellow()
+                            format!("... and {} more keys (showing first 50)", total_count - 50)
+                                .bright_yellow()
                         );
                     }
                 }
@@ -281,7 +316,11 @@ impl Command {
                         } else {
                             value.clone()
                         };
-                        println!("  {} {}", "Value:".bright_blue(), truncated_value.bright_white());
+                        println!(
+                            "  {} {}",
+                            "Value:".bright_blue(),
+                            truncated_value.bright_white()
+                        );
                     }
                     Err(e) => {
                         println!(
@@ -293,35 +332,33 @@ impl Command {
                         );
                     }
                 }
-            },
-            Command::Delete { key } => {
-                match viewer.delete_key(key) {
-                    Ok(existed) => {
-                        if existed {
-                            println!(
-                                "{} {} {}",
-                                "✓".bright_green().bold(),
-                                "Successfully deleted key".bright_green(),
-                                key.bright_cyan().bold()
-                            );
-                        } else {
-                            println!(
-                                "{} {} {}",
-                                "!".bright_yellow().bold(),
-                                "Key not found:".bright_yellow(),
-                                key.bright_cyan().bold()
-                            );
-                        }
-                    }
-                    Err(e) => {
+            }
+            Command::Delete { key } => match viewer.delete_key(key) {
+                Ok(existed) => {
+                    if existed {
                         println!(
-                            "{} {} {} {}",
-                            "✗".bright_red().bold(),
-                            "Failed to delete key".bright_red(),
-                            key.bright_cyan().bold(),
-                            e.to_string().red()
+                            "{} {} {}",
+                            "✓".bright_green().bold(),
+                            "Successfully deleted key".bright_green(),
+                            key.bright_cyan().bold()
+                        );
+                    } else {
+                        println!(
+                            "{} {} {}",
+                            "!".bright_yellow().bold(),
+                            "Key not found:".bright_yellow(),
+                            key.bright_cyan().bold()
                         );
                     }
+                }
+                Err(e) => {
+                    println!(
+                        "{} {} {} {}",
+                        "✗".bright_red().bold(),
+                        "Failed to delete key".bright_red(),
+                        key.bright_cyan().bold(),
+                        e.to_string().red()
+                    );
                 }
             },
             Command::Search { pattern, is_regex } => {
@@ -346,6 +383,82 @@ impl Command {
                     }
                 }
             }
+            Command::Trees { pattern, is_regex } => {
+                let trees = viewer.list_trees(pattern, *is_regex)?;
+                if trees.is_empty() {
+                    println!("{}", "No trees found matching the pattern.".yellow());
+                } else {
+                    let total_count = trees.len();
+                    let display_trees = if total_count > 50 {
+                        &trees[0..50]
+                    } else {
+                        &trees
+                    };
+
+                    println!(
+                        "{} {} {}",
+                        "Found".bright_blue(),
+                        total_count.to_string().bright_yellow().bold(),
+                        "trees:".bright_blue()
+                    );
+
+                    for tree_name in display_trees {
+                        println!("  {}", tree_name.bright_cyan());
+                    }
+
+                    if total_count > 50 {
+                        println!(
+                            "{}",
+                            format!("... and {} more trees (showing first 50)", total_count - 50)
+                                .bright_yellow()
+                        );
+                    }
+                }
+            }
+            Command::Select { tree } => match viewer.select_tree(tree) {
+                Ok(_) => {
+                    println!(
+                        "{} {} {}",
+                        "✓".bright_green().bold(),
+                        "Selected tree:".bright_green(),
+                        tree.bright_cyan().bold()
+                    );
+                }
+                Err(e) => {
+                    println!(
+                        "{} {} {} {}",
+                        "✗".bright_red().bold(),
+                        "Failed to select tree".bright_red(),
+                        tree.bright_cyan().bold(),
+                        e.to_string().red()
+                    );
+                }
+            },
+            Command::Unselect => match viewer.unselect_tree() {
+                Ok(was_selected) => {
+                    if was_selected {
+                        println!(
+                            "{} {}",
+                            "✓".bright_green().bold(),
+                            "Tree unselected. Now working with the default tree.".bright_green()
+                        );
+                    } else {
+                        println!(
+                            "{} {}",
+                            "!".bright_yellow().bold(),
+                            "No tree was previously selected.".bright_yellow()
+                        );
+                    }
+                }
+                Err(e) => {
+                    println!(
+                        "{} {} {}",
+                        "✗".bright_red().bold(),
+                        "Failed to unselect tree:".bright_red(),
+                        e.to_string().red()
+                    );
+                }
+            },
             Command::Help => {
                 print_help();
             }
@@ -433,10 +546,7 @@ fn print_help() {
         "{:<25} Set/update a key-value pair",
         "set <key> <value>".bright_green().bold()
     );
-    println!(
-        "{:<25} Delete a key",
-        "delete <key>".bright_green().bold()
-    );
+    println!("{:<25} Delete a key", "delete <key>".bright_green().bold());
     println!(
         "{:<25} Search values matching pattern",
         "search <pattern>".bright_green().bold()
@@ -449,6 +559,51 @@ fn print_help() {
         "{:<25} Show this help message",
         "help".bright_green().bold()
     );
+    println!();
+    println!("{}", "Tree Management:".bright_blue().bold());
+    println!(
+        "{:<25} List all trees in the database",
+        "trees".bright_green().bold()
+    );
+    println!(
+        "{:<25} List trees matching glob pattern",
+        "trees <pattern>".bright_green().bold()
+    );
+    println!(
+        "{:<25} List trees matching regex pattern",
+        "trees regex <pattern>".bright_green().bold()
+    );
+    println!(
+        "{:<25} Select a tree to work with",
+        "select <tree>".bright_green().bold()
+    );
+    println!(
+        "{:<25} Unselect current tree (return to default)",
+        "unselect".bright_green().bold()
+    );
+
+    println!();
+    println!("{}", "Tree Usage:".bright_blue().bold());
+    println!(
+        "  {} Trees provide data isolation - keys in different trees are separate",
+        "•".bright_blue()
+    );
+    println!(
+        "  {} When a tree is selected, the prompt shows: {}",
+        "•".bright_blue(),
+        "[tree_name]>".bright_magenta()
+    );
+    println!(
+        "  {} All CRUD operations work on the selected tree",
+        "•".bright_blue()
+    );
+    println!(
+        "  {} Use 'unselect' to return to the default tree",
+        "•".bright_blue()
+    );
+
+    println!();
+    println!("{}", "Advanced Usage:".bright_blue().bold());
     println!(
         "{:<25} Show key completions for a command",
         "complete <cmd>".bright_green().bold()
@@ -489,31 +644,39 @@ fn print_help() {
         ">".bright_black(),
         "search regex \\d{4}-\\d{2}-\\d{2}".bright_white()
     );
-    
+    println!("  {} {}", ">".bright_black(), "trees".bright_white());
+    println!("  {} {}", ">".bright_black(), "trees *_data".bright_white());
+    println!(
+        "  {} {}",
+        ">".bright_black(),
+        "select settings".bright_white()
+    );
+    println!(
+        "  {} {}",
+        "[settings]>".bright_magenta(),
+        "list".bright_white()
+    );
+    println!(
+        "  {} {}",
+        "[settings]>".bright_magenta(),
+        "unselect".bright_white()
+    );
+
     println!();
     println!("{}", "Note:".bright_blue().bold());
-    println!("  {} Use quotes for keys/values with spaces: {} or {}", 
+    println!(
+        "  {} Use quotes for keys/values with spaces: {} or {}",
         "•".bright_blue(),
         "\"key name\"".bright_yellow(),
         "\"value with spaces\"".bright_yellow()
     );
-    println!("  {} Escape quotes in values: {} → {}", 
+    println!(
+        "  {} Escape quotes in values: {} → {}",
         "•".bright_blue(),
         "\"He said \\\"hello\\\"\"".bright_yellow(),
         "He said \"hello\"".bright_white()
     );
     println!("  {} Keys are auto-completed with TAB", "•".bright_blue());
-    println!();
-    println!(
-        "  {} {}",
-        ">".bright_black(),
-        "search *@example.com".bright_white()
-    );
-    println!(
-        "  {} {}",
-        ">".bright_black(),
-        "search regex \\d{4}-\\d{2}-\\d{2}".bright_white()
-    );
     println!();
 }
 
@@ -557,13 +720,19 @@ mod tests {
     #[test]
     fn test_command_parse_set() {
         let cmd = Command::parse("set key value");
-        assert!(matches!(cmd, Some(Command::Set { key, value }) if key == "key" && value == "value"));
+        assert!(
+            matches!(cmd, Some(Command::Set { key, value }) if key == "key" && value == "value")
+        );
 
         let cmd = Command::parse("set \"key with spaces\" \"value with spaces\"");
-        assert!(matches!(cmd, Some(Command::Set { key, value }) if key == "key with spaces" && value == "value with spaces"));
+        assert!(
+            matches!(cmd, Some(Command::Set { key, value }) if key == "key with spaces" && value == "value with spaces")
+        );
 
         let cmd = Command::parse("set key \"value with \\\"quotes\\\"\"");
-        assert!(matches!(cmd, Some(Command::Set { key, value }) if key == "key" && value == "value with \"quotes\""));
+        assert!(
+            matches!(cmd, Some(Command::Set { key, value }) if key == "key" && value == "value with \"quotes\"")
+        );
 
         // Test incomplete set command
         let cmd = Command::parse("set key");
@@ -675,13 +844,67 @@ mod tests {
         let cmd = Command::parse("invalid_command");
         assert!(cmd.is_none());
 
-        let cmd = Command::parse("");
+        let cmd = Command::parse("list too many args here");
         assert!(cmd.is_none());
 
         let cmd = Command::parse("get");
         assert!(cmd.is_none());
 
-        let cmd = Command::parse("search");
+        let cmd = Command::parse("set key");
         assert!(cmd.is_none());
+
+        let cmd = Command::parse("delete");
+        assert!(cmd.is_none());
+    }
+
+    #[test]
+    fn test_command_parse_trees() {
+        let cmd = Command::parse("trees");
+        assert!(
+            matches!(cmd, Some(Command::Trees { pattern, is_regex }) if pattern == "*" && !is_regex)
+        );
+
+        let cmd = Command::parse("trees my_tree_*");
+        assert!(
+            matches!(cmd, Some(Command::Trees { pattern, is_regex }) if pattern == "my_tree_*" && !is_regex)
+        );
+
+        let cmd = Command::parse("trees regex my_tree_\\d+");
+        assert!(
+            matches!(cmd, Some(Command::Trees { pattern, is_regex }) if pattern == "my_tree_d+" && is_regex)
+        );
+
+        // Test trees command with "regex" as pattern (valid)
+        let cmd = Command::parse("trees regex");
+        assert!(
+            matches!(cmd, Some(Command::Trees { pattern, is_regex }) if pattern == "regex" && !is_regex)
+        );
+
+        // Test trees command with too many args
+        let cmd = Command::parse("trees regex pattern extra");
+        assert!(cmd.is_none());
+    }
+
+    #[test]
+    fn test_command_parse_select() {
+        let cmd = Command::parse("select my_tree");
+        assert!(matches!(cmd, Some(Command::Select { tree }) if tree == "my_tree"));
+
+        let cmd = Command::parse("select tree_with_underscore");
+        assert!(matches!(cmd, Some(Command::Select { tree }) if tree == "tree_with_underscore"));
+
+        // Test incomplete select command
+        let cmd = Command::parse("select");
+        assert!(cmd.is_none());
+    }
+
+    #[test]
+    fn test_command_parse_unselect() {
+        let cmd = Command::parse("unselect");
+        assert!(matches!(cmd, Some(Command::Unselect)));
+
+        // Unselect doesn't take arguments
+        let cmd = Command::parse("unselect extra_arg");
+        assert!(matches!(cmd, Some(Command::Unselect)));
     }
 }

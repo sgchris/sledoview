@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-01-19
+
+### Added
+- 🌳 **Tree Management System** - Complete support for SLED named trees
+  - `trees` command to list all available trees with pattern matching
+  - `trees regex <pattern>` for regex-based tree filtering
+  - `select <tree>` command to switch between trees
+  - `unselect` command to return to the default tree
+  - Visual prompt indicators showing selected tree: `[tree_name]>`
+  - Complete tree isolation - keys in different trees are separate
+  - Automatic tree creation when selecting non-existent trees
+- 🎯 **Enhanced CRUD Operations** - All existing commands now work with tree selection
+  - `count`, `list`, `get`, `set`, `delete`, `search` operations respect selected tree
+  - Tree-aware tab completion for tree names
+  - Comprehensive error handling for tree operations
+- 📚 **Updated Documentation** - Extensive documentation for tree functionality
+  - Enhanced help system with tree command examples
+  - Updated README with comprehensive tree usage examples
+  - Tree management best practices and usage patterns
+
+### Changed
+- All existing commands now operate on the selected tree when one is active
+- Enhanced REPL prompt to show selected tree context
+- Improved tab completion to include tree names for relevant commands
+- Updated help system with tree management examples and usage notes
+
+### Technical Improvements
+- Added comprehensive test suite for tree functionality (31 total tests)
+- Enhanced database abstraction layer with tree state management
+- Improved command parsing to handle tree-related commands
+- Added tree-specific error types and handling
+
 ## [0.1.0] - 2024-08-20
 
 ### Added
