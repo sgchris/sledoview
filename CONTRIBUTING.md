@@ -199,10 +199,13 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ### Database Safety
 
-- **Read-only operations only** - this tool should never modify databases
-- **Proper database locking** - ensure we don't interfere with other processes
-- **Validate input** - check database format before accessing
-- **Handle corruption gracefully** - provide helpful error messages
+- **Read and write operations** - Tool supports both read-only browsing and safe write operations
+- **Transactional safety** - All write operations are atomic and properly handled
+- **Key validation** - Comprehensive validation before any write operations
+- **Backup recommendations** - Users should backup databases before extensive modifications
+- **Proper database locking** - Ensure we don't interfere with other processes
+- **Validate input** - Check database format and permissions before accessing
+- **Handle corruption gracefully** - Provide helpful error messages
 
 ### Platform Compatibility
 

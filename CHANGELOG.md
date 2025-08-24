@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.0] - 2025-01-19
+## [1.0.3] - 2025-08-24
 
 ### Added
 - 🌳 **Tree Management System** - Complete support for SLED named trees
@@ -18,26 +18,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Visual prompt indicators showing selected tree: `[tree_name]>`
   - Complete tree isolation - keys in different trees are separate
   - Automatic tree creation when selecting non-existent trees
-- 🎯 **Enhanced CRUD Operations** - All existing commands now work with tree selection
+- ✏️ **Write Operations** - Full CRUD capabilities for database modification
+  - `set <key> <value>` command to create and update key-value pairs
+  - `delete <key>` command to remove keys from the database
+  - Immediate persistence to disk for all write operations
+  - Key validation with comprehensive error checking
+  - Support for quoted keys and values with escape sequences
+  - Transactional safety with proper error handling
+- 🎯 **Enhanced CRUD Operations** - All commands now work with tree selection
   - `count`, `list`, `get`, `set`, `delete`, `search` operations respect selected tree
   - Tree-aware tab completion for tree names
   - Comprehensive error handling for tree operations
-- 📚 **Updated Documentation** - Extensive documentation for tree functionality
-  - Enhanced help system with tree command examples
-  - Updated README with comprehensive tree usage examples
-  - Tree management best practices and usage patterns
+- 📚 **Updated Documentation** - Extensive documentation for all functionality
+  - Enhanced help system with tree command examples and write operation guides
+  - Updated README with comprehensive usage examples
+  - Tree management best practices and write operation safety
 
 ### Changed
 - All existing commands now operate on the selected tree when one is active
 - Enhanced REPL prompt to show selected tree context
 - Improved tab completion to include tree names for relevant commands
-- Updated help system with tree management examples and usage notes
+- Updated help system with tree management and write operation examples
+- Database validation now checks for write permissions
+
+### Fixed
+- Removed unused error variants to eliminate compiler warnings
+- Improved error handling for tree operations
+- Enhanced database safety checks
 
 ### Technical Improvements
-- Added comprehensive test suite for tree functionality (31 total tests)
+- Added comprehensive test suite for tree functionality and write operations (31 total tests)
 - Enhanced database abstraction layer with tree state management
-- Improved command parsing to handle tree-related commands
-- Added tree-specific error types and handling
+- Improved command parsing to handle tree-related and write commands
+- Added proper error types and handling for all operations
+- Implemented key validation with security best practices
+
+## [1.1.0] - 2025-01-19
+
+### Legacy Entry
+This version entry was incorrectly dated and has been superseded by v1.0.3.
 
 ## [0.1.0] - 2024-08-20
 
@@ -78,10 +97,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 - Comprehensive README with usage examples
-- MIT OR Apache-2.0 dual licensing
+- MIT license
 - Contribution guidelines
 - Example database creation script
 - Full command reference with examples
 
-[Unreleased]: https://github.com/yourusername/sledoview/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/yourusername/sledoview/releases/tag/v0.1.0
+[Unreleased]: https://github.com/sgchris/sledoview/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/sgchris/sledoview/compare/v0.1.0...v1.0.3
+[0.1.0]: https://github.com/sgchris/sledoview/releases/tag/v0.1.0

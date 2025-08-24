@@ -1,7 +1,7 @@
 # SledoView Project Structure
 
 ## Overview
-SledoView is a comprehensive CLI tool for viewing and editing SLED databases. This document provides an overview of the project structure and components.
+SledoView is a comprehensive CLI tool for viewing and editing SLED databases with full CRUD operations and multi-tree support. This document provides an overview of the project structure and components.
 
 ## Commands Reference
 
@@ -11,8 +11,14 @@ SledoView is a comprehensive CLI tool for viewing and editing SLED databases. Th
 | `list [pattern]` | List keys (glob) | `list user_*` |
 | `list regex <regex>` | List keys (regex) | `list regex user_\d+` |
 | `get <key>` | Get key details | `get user_001` |
+| `set <key> <value>` | Create/update key | `set user_001 "John Doe"` |
+| `delete <key>` | Delete key | `delete user_001` |
 | `search <pattern>` | Search values (glob) | `search *@example.com` |
 | `search regex <regex>` | Search values (regex) | `search regex \d{4}-\d{2}-\d{2}` |
+| `trees [pattern]` | List trees | `trees` |
+| `trees regex <regex>` | List trees (regex) | `trees regex data_.*` |
+| `select <tree>` | Select tree | `select settings` |
+| `unselect` | Unselect tree | `unselect` |
 | `help` | Show help | `help` |
 | `exit` | Exit application | `exit` |
 
@@ -79,7 +85,7 @@ cargo run -- example_db
 
 ## Design Principles
 
-1. **Safety First**: Read-only operations, comprehensive validation
+1. **Safety First**: Safe CRUD operations with comprehensive validation and transactional integrity
 2. **User Experience**: Colored output, clear error messages, intuitive commands
 3. **Robustness**: Extensive testing, proper error handling
 4. **Performance**: Efficient database operations, smart memory usage

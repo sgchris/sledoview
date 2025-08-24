@@ -1,6 +1,6 @@
 # Tree Support Implementation Summary
 
-This document summarizes the comprehensive tree support feature added to SledoView in version 1.1.0.
+This document summarizes the comprehensive tree support feature added to SledoView in version 1.0.3.
 
 ## Overview
 
@@ -35,10 +35,8 @@ SledoView now supports SLED's named trees feature, providing complete data isola
    - Added tree refresh logic after operations
 
 4. **Error Handling (`src/error.rs`)**
-   - Added tree-specific error types:
-     - `TreeNotFound { name: String }`
-     - `NoTreeSelected`
-     - `TreeOperation { message: String }`
+   - Enhanced tree-specific error handling with `TreeOperation` errors
+   - Comprehensive error messages for tree-related operations
 
 ### New Commands Added
 
@@ -148,8 +146,8 @@ The implementation provides a solid foundation for future enhancements:
 
 ## Version Information
 
-- **Version**: 1.1.0
-- **Release Date**: 2025-01-19
+- **Version**: 1.0.3
+- **Release Date**: 2025-08-24
 - **Compatibility**: Fully backward compatible
 - **Test Coverage**: 31 unit tests + 20 integration tests
 - **New Commands**: 3 (`trees`, `select`, `unselect`)
