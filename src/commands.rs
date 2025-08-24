@@ -591,7 +591,7 @@ fn print_help() {
     println!(
         "  {} When a tree is selected, the prompt shows: {}",
         "•".bright_blue(),
-        "[tree_name]>".bright_magenta()
+        "[tree_name]>".bright_cyan()
     );
     println!(
         "  {} All CRUD operations work on the selected tree",
@@ -653,12 +653,12 @@ fn print_help() {
     );
     println!(
         "  {} {}",
-        "[settings]>".bright_magenta(),
+        "[settings]>".bright_white(),
         "list".bright_white()
     );
     println!(
         "  {} {}",
-        "[settings]>".bright_magenta(),
+        "[settings]>".bright_white(),
         "unselect".bright_white()
     );
 

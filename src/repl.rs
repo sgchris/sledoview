@@ -309,7 +309,7 @@ impl Repl {
         loop {
             // Create prompt that shows selected tree
             let prompt = match self.viewer.get_selected_tree() {
-                Some(tree) => format!("{}> ", format!("[{}]", tree).bright_magenta()),
+                Some(tree) => format!("[{}]> ", tree),
                 None => "> ".to_string(),
             };
 
