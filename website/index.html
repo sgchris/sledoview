@@ -95,7 +95,7 @@ Type 'help' for available commands or 'exit' to quit.
 
         <!-- Commands Section -->
         <section class="commands">
-            <h2 class="section-title">Working with Trees - Interactive Example</h2>
+            <h2 class="section-title">Example of working with the Sled DB file</h2>
             <div class="terminal">
                 <div class="terminal-header">
                     <div class="terminal-buttons">
@@ -167,114 +167,6 @@ Value:
                 </div>
             </div>
         </section>
-
-        <!-- Installation Section -->
-        <section id="installation" class="installation">
-            <h2 class="section-title">Getting Started</h2>
-            
-            <div class="quick-download">
-                <h3>Quick Download</h3>
-                <p>Download pre-built executables for immediate use, or build from source for the latest features.</p>
-                <div class="quick-download-buttons">
-                    <a href="https://github.com/sgchris/sledoview/releases" target="_blank" class="btn-download-small">
-                        GitHub Releases
-                    </a>
-                </div>
-            </div>
-            
-            <div class="install-content">
-                <div class="install-step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h3>Clone the Repository</h3>
-                        <div class="code-block">
-                            <pre><code class="bash">git clone https://github.com/sgchris/sledoview
-cd sledoview</code></pre>
-                            <button class="copy-btn" onclick="copyToClipboard(this)">📋</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="install-step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h3>Build the Application</h3>
-                        <div class="code-block">
-                            <pre><code class="bash">cargo build --release</code></pre>
-                            <button class="copy-btn" onclick="copyToClipboard(this)">📋</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="install-step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h3>Run SledoView</h3>
-                        <div class="code-block">
-                            <pre><code class="bash"># Linux/macOS
-./target/release/sledoview /path/to/your/database.db
-
-# Windows
-.\target\release\sledoview.exe C:\path\to\your\database.db</code></pre>
-                            <button class="copy-btn" onclick="copyToClipboard(this)">📋</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="requirements">
-                <h3>Requirements</h3>
-                <ul>
-                    <li><strong>Rust 1.70+</strong> (2021 edition)</li>
-                    <li><strong>Cargo</strong> build system</li>
-                    <li><strong>SLED database files</strong> to work with</li>
-                </ul>
-            </div>
-        </section>
-
-        <!-- Contributing Section -->
-        <section class="contributing">
-            <h2 class="section-title">Join the Community</h2>
-            <div class="contributing-content">
-                <div class="contribute-card">
-                    <div class="contribute-icon">🚀</div>
-                    <h3>Contribute Code</h3>
-                    <p>Help improve SledoView by adding features, fixing bugs, or improving documentation</p>
-                    <a href="https://github.com/sgchris/sledoview" class="contribute-link" target="_blank">
-                        View Issues →
-                    </a>
-                </div>
-                <div class="contribute-card">
-                    <div class="contribute-icon">🐛</div>
-                    <h3>Report Bugs</h3>
-                    <p>Found a bug or have a feature request? Let us know on GitHub Issues</p>
-                    <a href="https://github.com/sgchris/sledoview/issues" class="contribute-link" target="_blank">
-                        Report Issue →
-                    </a>
-                </div>
-                <div class="contribute-card">
-                    <div class="contribute-icon">📖</div>
-                    <h3>Improve Docs</h3>
-                    <p>Help others learn SledoView by improving documentation and examples</p>
-                    <a href="https://github.com/sgchris/sledoview/blob/master/README.md" class="contribute-link" target="_blank">
-                        Edit README →
-                    </a>
-                </div>
-            </div>
-
-            <div class="contribution-guidelines">
-                <h3>Contributing Guidelines</h3>
-                <ol>
-                    <li>Fork the repository and create a feature branch</li>
-                    <li>Write tests for your changes</li>
-                    <li>Ensure all tests pass with <code>cargo test</code></li>
-                    <li>Follow Rust formatting conventions with <code>cargo fmt</code></li>
-                    <li>Check for linting issues with <code>cargo clippy</code></li>
-                    <li>Submit a Pull Request with a clear description</li>
-                </ol>
-            </div>
-        </section>
-
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-content">
