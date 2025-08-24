@@ -776,3 +776,97 @@ body {
         min-width: auto;
     }
 }
+
+/* Commands Reference Table Styles */
+.commands-reference {
+    padding: 80px 20px;
+    background: #f8fafc;
+}
+
+.commands-table-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    overflow-x: auto;
+}
+
+.commands-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.commands-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.commands-table th {
+    padding: 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border: none;
+}
+
+.commands-table td {
+    padding: 20px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+
+.commands-table tbody tr:hover {
+    background: #f7fafc;
+}
+
+.commands-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.commands-table code {
+    background: #667eea;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.commands-table td:first-child {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.commands-table td:nth-child(2) {
+    color: #4a5568;
+    line-height: 1.6;
+}
+
+.commands-table td:nth-child(3) {
+    color: #2d3748;
+    line-height: 1.6;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+    .commands-reference {
+        padding: 60px 20px;
+    }
+    
+    .commands-table {
+        font-size: 0.9rem;
+    }
+    
+    .commands-table th,
+    .commands-table td {
+        padding: 15px 10px;
+    }
+    
+    .commands-table code {
+        font-size: 0.8rem;
+        padding: 3px 6px;
+    }
+}

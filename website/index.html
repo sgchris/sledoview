@@ -93,6 +93,65 @@ Type 'help' for available commands or 'exit' to quit.
             </div>
         </header>
 
+        <!-- Available Commands Section -->
+        <section class="commands-reference">
+            <h2 class="section-title">Available Commands</h2>
+            <div class="commands-table-container">
+                <table class="commands-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                            <th>Example(s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>list</code></td>
+                            <td>Lists keys in the current tree. Supports optional glob or regex filtering.</td>
+                            <td>
+                                <code>list</code> — lists all keys<br>
+                                <code>list user_*</code> — lists keys starting with user_
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>get</code></td>
+                            <td>Retrieves and displays the value for a given key.</td>
+                            <td><code>get user_001</code> — shows the value for user_001</td>
+                        </tr>
+                        <tr>
+                            <td><code>set</code></td>
+                            <td>Inserts or updates a key-value pair in the current tree.</td>
+                            <td>
+                                <code>set user_001 '{"name":"Alice"}'</code> — sets JSON value<br>
+                                <code>set counter 42</code> — sets numeric value
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>delete</code></td>
+                            <td>Removes a key (and its value) from the current tree.</td>
+                            <td><code>delete user_001</code> — deletes the key user_001</td>
+                        </tr>
+                        <tr>
+                            <td><code>trees</code></td>
+                            <td>Lists all trees in the database.</td>
+                            <td><code>trees</code> — displays available trees</td>
+                        </tr>
+                        <tr>
+                            <td><code>select</code></td>
+                            <td>Switches the active tree for subsequent commands.</td>
+                            <td><code>select sessions</code> — changes active tree to sessions</td>
+                        </tr>
+                        <tr>
+                            <td><code>unselect</code></td>
+                            <td>Returns to the default tree (removes active tree selection).</td>
+                            <td><code>unselect</code> — goes back to the default tree</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Commands Section -->
         <section class="commands">
             <h2 class="section-title">Example of working with the Sled DB file</h2>
