@@ -1,6 +1,6 @@
 [package]
 name = "sledoview"
-version = "1.1.0"
+version = "1.0.1"
 edition = "2021"
 authors = ["Gregory Chris <sgchris@gmail.com>"]
 description = "A CLI tool for viewing and managing SLED database files"
