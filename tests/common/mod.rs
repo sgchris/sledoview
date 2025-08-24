@@ -36,18 +36,3 @@ pub fn create_empty_test_db() -> TempDir {
     } // Database is dropped here, releasing the lock
     temp_dir
 }
-
-/// Creates a test database with specific data
-pub fn create_custom_test_db(data: &[(&str, &str)]) -> TempDir {
-    let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
-    {
-        let db = sled::open(temp_dir.path()).expect("Failed to create test database");
-
-        for (key, value) in data {
-            db.insert(key.as_bytes(), value.as_bytes()).unwrap();
-        }
-
-        db.flush().unwrap();
-    } // Database is dropped here, releasing the lock
-    temp_dir
-}
