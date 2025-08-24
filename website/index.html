@@ -95,120 +95,75 @@ Type 'help' for available commands or 'exit' to quit.
 
         <!-- Commands Section -->
         <section class="commands">
-            <h2 class="section-title">Available Commands</h2>
-            <div class="commands-grid">
-                <div class="command-card">
-                    <div class="command-header">
-                        <code class="command-name">set &lt;key&gt; &lt;value&gt;</code>
-                        <span class="command-type">Create/Update</span>
+            <h2 class="section-title">Working with Trees - Interactive Example</h2>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-buttons">
+                        <span class="btn-close"></span>
+                        <span class="btn-minimize"></span>
+                        <span class="btn-maximize"></span>
                     </div>
-                    <p class="command-description">Set or update a key-value pair in the database</p>
-                    <div class="command-example">
-                        <pre><code>> set user_name "John Doe"
-<span class="text-green">✓ Successfully set key 'user_name'</span></code></pre>
-                    </div>
+                    <div class="terminal-title">SledoView - Tree Operations Demo</div>
                 </div>
+                <div class="terminal-body">
+                    <pre><code class="terminal-content">
+SledoView - SLED Database Viewer
+═══════════════════════════════════
+Validating database...
+✓ Database validation passed
+✓ Successfully opened database: sample_with_trees.db
 
-                <div class="command-card">
-                    <div class="command-header">
-                        <code class="command-name">get &lt;key&gt;</code>
-                        <span class="command-type">Read</span>
-                    </div>
-                    <p class="command-description">Retrieve detailed information about a specific key</p>
-                    <div class="command-example">
-                        <pre><code>> get user_name
-<span class="text-cyan">Key: user_name</span>
-<span class="text-cyan">Size: 8 bytes</span>
-<span class="text-white">Value: John Doe</span></code></pre>
-                    </div>
-                </div>
+Interactive SLED Database Client
+Type 'help' for available commands or 'exit' to quit.
+Use TAB for completion, type partial keys and TAB to auto-complete!
 
-                <div class="command-card">
-                    <div class="command-header">
-                        <code class="command-name">delete &lt;key&gt;</code>
-                        <span class="command-type">Delete</span>
-                    </div>
-                    <p class="command-description">Delete a key from the database</p>
-                    <div class="command-example">
-                        <pre><code>> delete temp_data
-<span class="text-green">✓ Successfully deleted key 'temp_data'</span></code></pre>
-                    </div>
-                </div>
+> trees
+Found 11 trees:
+  binary_data
+  cache
+  configuration
+  logs
+  metrics
+  nonexistent_new_tree
+  nonexistent_tree
+  sessions
+  settings
+  settings`nlist`nunselect`nexit
+  test_data
+> select metrics
+✓ Selected tree: metrics
+[metrics]> list
+Found 12 keys:
+  1: cpu_usage:2024-01-01T10:00 = 45.2
+  2: cpu_usage:2024-01-01T10:01 = 52.1
+  3: cpu_usage:2024-01-01T10:02 = 38.7
+  4: error_count:today = 2
+  5: error_count:total = 45
+  6: memory_usage:2024-01-01T10:00 = 1024.5
+  7: memory_usage:2024-01-01T10:01 = 1156.8
+  8: memory_usage:2024-01-01T10:02 = 987.3
+  9: request_count:today = 234
+  10: request_count:total = 15847
+  11: response_time:avg = 125.4
+  12: response_time:p95 = 450.2
+[metrics]> delete response_time:avg
+✓ Successfully deleted key response_time:avg
+[metrics]> get memory_usage:2024-01-01T10:00
 
-                <div class="command-card">
-                    <div class="command-header">
-                        <code class="command-name">list [pattern]</code>
-                        <span class="command-type">Browse</span>
-                    </div>
-                    <p class="command-description">List keys matching a pattern (supports glob and regex)</p>
-                    <div class="command-example">
-                        <pre><code>> list user_*
-<span class="text-yellow">Found 3 keys:</span>
-<span class="text-white">  1: user_001</span>
-<span class="text-white">  2: user_123</span></code></pre>
-                    </div>
-                </div>
+══════════════════════════════════════════════════
+Key: memory_usage:2024-01-01T10:00
+Size: 6 bytes
+UTF-8: Yes
+Value:
+──────────────────────────────────────────────────
+1024.5
+══════════════════════════════════════════════════
 
-                <div class="command-card">
-                    <div class="command-header">
-                        <code class="command-name">search &lt;pattern&gt;</code>
-                        <span class="command-type">Search</span>
-                    </div>
-                    <p class="command-description">Search for entries where values match a pattern</p>
-                    <div class="command-example">
-                        <pre><code>> search *@gmail.com
-<span class="text-yellow">Found 2 matches:</span>
-<span class="text-white">  email => john@gmail.com</span></code></pre>
-                    </div>
-                </div>
+[metrics]> unselect
+✓ Tree unselected. Now working with the default tree.
+>
 
-                <div class="command-card">
-                    <div class="command-header">
-                        <code class="command-name">count</code>
-                        <span class="command-type">Info</span>
-                    </div>
-                    <p class="command-description">Display total number of records in database</p>
-                    <div class="command-example">
-                        <pre><code>> count
-<span class="text-yellow">Total records: 1,532</span></code></pre>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Features Section -->
-        <section class="features">
-            <h2 class="section-title">Why Choose SledoView?</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h3>Interactive REPL</h3>
-                    <p>Browse your SLED database with a user-friendly terminal interface and TAB completion</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">✏️</div>
-                    <h3>CRUD Operations</h3>
-                    <p>Create, Read, Update, and Delete key-value pairs with immediate persistence</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔎</div>
-                    <h3>Pattern Matching</h3>
-                    <p>Search keys and values using glob patterns or regular expressions</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🎨</div>
-                    <h3>Colorized Output</h3>
-                    <p>Beautiful, colored terminal output for better readability and user experience</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔓</div>
-                    <h3>Write Operations</h3>
-                    <p>Safely modify database contents with proper validation and error handling</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🧪</div>
-                    <h3>Well Tested</h3>
-                    <p>Extensive test suite with 40+ tests ensuring reliability and stability</p>
+</code></pre>
                 </div>
             </div>
         </section>
