@@ -9,6 +9,7 @@ pub struct DatabaseValidator<'a> {
 }
 
 impl<'a> DatabaseValidator<'a> {
+    #[must_use]
     pub fn new(path: &'a Path) -> Self {
         Self { path }
     }

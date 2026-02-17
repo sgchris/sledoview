@@ -1,6 +1,5 @@
 use crate::commands::Command;
 use crate::db::SledViewer;
-use anyhow::Result;
 use colored::*;
 use rustyline::error::ReadlineError;
 use rustyline::history::FileHistory;
@@ -150,6 +149,7 @@ pub struct Repl {
 }
 
 impl Repl {
+    #[must_use]
     pub fn new(viewer: SledViewer) -> Self {
         let mut editor =
             Editor::<SledCompleter, FileHistory>::new().expect("Failed to create readline editor");
@@ -164,36 +164,32 @@ impl Repl {
         }
     }
 
-    fn load_keys(&mut self) -> Result<()> {
+    fn load_keys(&mut self) {
         match self.viewer.list_keys("*", false) {
             Ok(keys) => {
-                self.keys = keys.clone();
+                keys.clone_into(&mut self.keys);
                 // Update the completer with new keys
                 if let Some(helper) = self.editor.helper_mut() {
                     helper.update_keys(keys);
                 }
-                Ok(())
             }
             Err(e) => {
                 eprintln!("Warning: Failed to load keys for completion: {}", e);
-                Ok(())
             }
         }
     }
 
-    fn load_trees(&mut self) -> Result<()> {
+    fn load_trees(&mut self) {
         match self.viewer.list_trees("*", false) {
             Ok(trees) => {
-                self.trees = trees.clone();
+                trees.clone_into(&mut self.trees);
                 // Update the completer with new trees
                 if let Some(helper) = self.editor.helper_mut() {
                     helper.update_trees(trees);
                 }
-                Ok(())
             }
             Err(e) => {
-                eprintln!("Warning: Failed to load trees for completion: {}", e);
-                Ok(())
+                eprintln!("Warning: Failed to load trees for completion: {e}");
             }
         }
     }
@@ -303,13 +299,13 @@ impl Repl {
         println!();
 
         // Load keys and trees for completion
-        self.load_keys()?;
-        self.load_trees()?;
+        self.load_keys();
+        self.load_trees();
 
         loop {
             // Create prompt that shows selected tree
             let prompt = match self.viewer.get_selected_tree() {
-                Some(tree) => format!("[{}]> ", tree),
+                Some(tree) => format!("[{tree}]> "),
                 None => "> ".to_string(),
             };
 
@@ -404,8 +400,8 @@ impl Repl {
                                 );
                             }
                             // Reload keys and trees after any command in case database changed
-                            self.load_keys()?;
-                            self.load_trees()?;
+                            self.load_keys();
+                            self.load_trees();
                         }
                         None => {
                             println!(
@@ -422,7 +418,6 @@ impl Repl {
                     // doesn't give us access to the current line content on interrupt
                     println!("^C");
                     println!("{}", "Use 'exit' or Ctrl-D to quit.".bright_black());
-                    continue;
                 }
                 Err(ReadlineError::Eof) => {
                     println!("{}", "Goodbye!".bright_green());
@@ -434,8 +429,6 @@ impl Repl {
                 }
             }
         }
-
-        Ok(())
     }
 
     fn show_completions(&self, line: &str) {
