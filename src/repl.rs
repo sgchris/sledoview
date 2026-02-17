@@ -282,7 +282,7 @@ impl Repl {
         false
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) {
         println!();
         println!(
             "{}",
@@ -359,8 +359,8 @@ impl Repl {
                                         );
                                     }
                                     // Reload keys and trees after any command in case database changed
-                                    self.load_keys()?;
-                                    self.load_trees()?;
+                                    self.load_keys();
+                                    self.load_trees();
                                 }
                                 None => {
                                     println!(
