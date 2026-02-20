@@ -230,6 +230,58 @@ impl SledViewer {
         }
     }
 
+    /// Search all binary (non-UTF-8) keys for one whose full uppercase hex
+    /// representation ends with `suffix` (case-insensitive).
+    ///
+    /// This lets users locate a key from the truncated display like
+    /// `0000....61F8` by typing `get 61F8`.
+    pub fn find_key_by_hex_suffix(&self, suffix: &str) -> Result<Option<KeyInfo>> {
+        let suffix_upper = suffix.to_uppercase();
+
+        // Helper closure: returns Some(KeyInfo) if this key matches.
+        let try_match = |key: &[u8], value: &sled::IVec| -> Option<KeyInfo> {
+            // Only consider binary (non-UTF-8) keys.
+            if std::str::from_utf8(key).is_ok() {
+                return None;
+            }
+            let hex: String = key.iter().map(|b| format!("{:02X}", b)).collect();
+            if hex.ends_with(&suffix_upper) {
+                let is_utf8 = std::str::from_utf8(value).is_ok();
+                let value_str = String::from_utf8_lossy(value).to_string();
+                Some(KeyInfo {
+                    key: format_key_bytes(key),
+                    value: value_str,
+                    size: value.len(),
+                    is_utf8,
+                })
+            } else {
+                None
+            }
+        };
+
+        match &self.selected_tree {
+            Some(tree_name) => {
+                let tree = self.get_tree(tree_name)?;
+                for result in tree.iter() {
+                    let (key, value) = result?;
+                    if let Some(info) = try_match(&key, &value) {
+                        return Ok(Some(info));
+                    }
+                }
+            }
+            None => {
+                for result in self.db.iter() {
+                    let (key, value) = result?;
+                    if let Some(info) = try_match(&key, &value) {
+                        return Ok(Some(info));
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     pub fn search_values(&self, pattern: &str, is_regex: bool) -> Result<Vec<KeyValuePair>> {
         let mut results = Vec::new();
 
@@ -456,15 +508,15 @@ pub struct KeyValuePair {
 ///
 /// - Valid UTF-8: returned as the decoded string.
 /// - Binary / invalid UTF-8: displayed as uppercase hex.  
-///   If the hex representation exceeds 12 characters it is shortened to
-///   `XXXX....XXXX` (first 4 hex digits, four dots, last 4 hex digits).
+///   If the hex representation exceeds 16 characters it is shortened to
+///   `XXXX....XXXXXXXX` (first 4 hex digits, four dots, last 8 hex digits).
 pub fn format_key_bytes(bytes: &[u8]) -> String {
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
     }
     let hex: String = bytes.iter().map(|b| format!("{:02X}", b)).collect();
-    if hex.len() > 12 {
-        format!("{}....{}", &hex[..4], &hex[hex.len() - 4..])
+    if hex.len() > 16 {
+        format!("{}....{}", &hex[..4], &hex[hex.len() - 8..])
     } else {
         hex
     }

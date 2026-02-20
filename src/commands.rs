@@ -288,14 +288,29 @@ impl Command {
                     }
                 }
             }
-            Command::Get { key } => match viewer.get_key(key) {
-                Ok(info) => {
-                    print_key_info(&info);
+            Command::Get { key } => {
+                // Try exact string key first; if not found and the argument
+                // looks like a hex string, fall back to matching binary keys
+                // by their trailing hex digits (e.g. `get 61F8` finds
+                // the key whose full hex ends with "61F8").
+                let key_result = viewer.get_key(key).or_else(|original_err| {
+                    let looks_like_hex =
+                        !key.is_empty() && key.chars().all(|c| c.is_ascii_hexdigit());
+                    if looks_like_hex {
+                        viewer
+                            .find_key_by_hex_suffix(key)
+                            .and_then(|opt| opt.ok_or(original_err))
+                    } else {
+                        Err(original_err)
+                    }
+                });
+                match key_result {
+                    Ok(info) => print_key_info(&info),
+                    Err(e) => {
+                        println!("{} {}", "Error:".bright_red().bold(), e.to_string().red());
+                    }
                 }
-                Err(e) => {
-                    println!("{} {}", "Error:".bright_red().bold(), e.to_string().red());
-                }
-            },
+            }
             Command::Set { key, value } => {
                 // Validate the key first
                 if let Err(error_msg) = validate_key(key) {
