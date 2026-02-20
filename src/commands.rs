@@ -1,4 +1,4 @@
-use crate::db::{KeyInfo, SledViewer};
+use crate::db::{format_key_bytes, KeyInfo, SledViewer};
 use anyhow::Result;
 use colored::*;
 
@@ -236,7 +236,7 @@ impl Command {
                 );
             }
             Command::List { pattern, is_regex } => {
-                let keys = viewer.list_keys(pattern, *is_regex)?;
+                let keys = viewer.list_keys_raw(pattern, *is_regex)?;
                 if keys.is_empty() {
                     println!("{}", "No keys found matching the pattern.".yellow());
                 } else {
@@ -254,15 +254,16 @@ impl Command {
                         "keys:".bright_blue()
                     );
 
-                    for (i, key) in display_keys.iter().enumerate() {
+                    for (i, key_bytes) in display_keys.iter().enumerate() {
+                        let key_display = format_key_bytes(key_bytes);
                         // Get value preview for each key
-                        match viewer.get_key(key) {
+                        match viewer.get_key_bytes(key_bytes) {
                             Ok(info) => {
                                 let preview = Self::format_value_preview(&info);
                                 println!(
                                     "  {}: {} = {}",
                                     (i + 1).to_string().bright_black(),
-                                    key.bright_white(),
+                                    key_display.bright_white(),
                                     preview
                                 );
                             }
@@ -271,7 +272,7 @@ impl Command {
                                 println!(
                                     "  {}: {} = {}",
                                     (i + 1).to_string().bright_black(),
-                                    key.bright_white(),
+                                    key_display.bright_white(),
                                     "(error reading value)".red()
                                 );
                             }

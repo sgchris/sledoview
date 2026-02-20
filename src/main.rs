@@ -11,6 +11,7 @@ use colored::*;
 
 use cli::Args;
 use db::SledViewer;
+use error::SledoViewError;
 use repl::Repl;
 use validator::DatabaseValidator;
 
@@ -31,10 +32,15 @@ fn main() -> Result<()> {
 
     // Validate the database
     let validator = DatabaseValidator::new(&args.database_path);
-    validator.validate()?;
+    if let Err(e) = validator.validate() {
+        startup_error_and_exit(e);
+    }
 
     // Open the database
-    let viewer = SledViewer::new(&args.database_path)?;
+    let viewer = match SledViewer::new(&args.database_path) {
+        Ok(v) => v,
+        Err(e) => startup_error_and_exit(e),
+    };
 
     // Check if database is writable
     if !viewer.is_writable() {
@@ -60,6 +66,35 @@ fn main() -> Result<()> {
     repl.run()?;
 
     Ok(())
+}
+
+/// Print a user-friendly error message for startup failures, then exit.
+fn startup_error_and_exit(err: anyhow::Error) -> ! {
+    // Check for the DatabaseLocked variant specifically.
+    let is_locked = err
+        .downcast_ref::<SledoViewError>()
+        .map(|e| matches!(e, SledoViewError::DatabaseLocked { .. }))
+        .unwrap_or(false);
+
+    if is_locked {
+        eprintln!(
+            "\n{} {}",
+            "✗  Database is locked.".bright_red().bold(),
+            "Another process has it open.".red()
+        );
+        eprintln!(
+            "   {}",
+            "Close the other application and try again.".yellow()
+        );
+    } else {
+        eprintln!(
+            "\n{} {}",
+            "✗  Failed to open database:".bright_red().bold(),
+            err.to_string().red()
+        );
+    }
+
+    std::process::exit(1);
 }
 
 fn create_test_database() -> Result<()> {

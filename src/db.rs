@@ -11,7 +11,17 @@ pub struct SledViewer {
 
 impl SledViewer {
     pub fn new(path: &Path) -> Result<Self> {
-        let db = sled::open(path)?;
+        let db = sled::open(path).map_err(|e| {
+            // Sled lock errors are easy to miss; surface a clear message.
+            if is_sled_lock_error(&e) {
+                SledoViewError::DatabaseLocked {
+                    path: path.display().to_string(),
+                }
+                .into()
+            } else {
+                anyhow::Error::from(e)
+            }
+        })?;
         Ok(Self {
             db,
             selected_tree: None,
@@ -91,6 +101,73 @@ impl SledViewer {
         Ok(keys)
     }
 
+    /// List raw key bytes, optionally filtered by pattern (glob or regex).
+    ///
+    /// Returns each key as its original `Vec<u8>`, which is required for keys
+    /// that are not valid UTF-8 (e.g. big-endian encoded `u64` timestamps).
+    pub fn list_keys_raw(&self, pattern: &str, is_regex: bool) -> Result<Vec<Vec<u8>>> {
+        let mut keys: Vec<Vec<u8>> = Vec::new();
+
+        if is_regex {
+            let regex = Regex::new(pattern).map_err(|_| SledoViewError::InvalidRegex {
+                pattern: pattern.to_string(),
+            })?;
+
+            match &self.selected_tree {
+                Some(tree_name) => {
+                    let tree = self.get_tree(tree_name)?;
+                    for result in tree.iter() {
+                        let (key, _) = result?;
+                        let key_str = String::from_utf8_lossy(&key);
+                        if regex.is_match(&key_str) {
+                            keys.push(key.to_vec());
+                        }
+                    }
+                }
+                None => {
+                    for result in self.db.iter() {
+                        let (key, _) = result?;
+                        let key_str = String::from_utf8_lossy(&key);
+                        if regex.is_match(&key_str) {
+                            keys.push(key.to_vec());
+                        }
+                    }
+                }
+            }
+        } else {
+            // Convert glob pattern to regex
+            let regex_pattern = glob_to_regex(pattern);
+            let regex = Regex::new(&regex_pattern).map_err(|_| SledoViewError::InvalidRegex {
+                pattern: pattern.to_string(),
+            })?;
+
+            match &self.selected_tree {
+                Some(tree_name) => {
+                    let tree = self.get_tree(tree_name)?;
+                    for result in tree.iter() {
+                        let (key, _) = result?;
+                        let key_str = String::from_utf8_lossy(&key);
+                        if regex.is_match(&key_str) {
+                            keys.push(key.to_vec());
+                        }
+                    }
+                }
+                None => {
+                    for result in self.db.iter() {
+                        let (key, _) = result?;
+                        let key_str = String::from_utf8_lossy(&key);
+                        if regex.is_match(&key_str) {
+                            keys.push(key.to_vec());
+                        }
+                    }
+                }
+            }
+        }
+
+        keys.sort();
+        Ok(keys)
+    }
+
     pub fn get_key(&self, key: &str) -> Result<KeyInfo> {
         let key_bytes = key.as_bytes();
 
@@ -121,6 +198,38 @@ impl SledViewer {
         }
     }
 
+    /// Retrieve key info by raw bytes instead of a UTF-8 string.
+    ///
+    /// Required for keys that are stored as binary data (e.g. big-endian `u64`
+    /// timestamps).  The `KeyInfo.key` field is populated via [`format_key_bytes`].
+    pub fn get_key_bytes(&self, key_bytes: &[u8]) -> Result<KeyInfo> {
+        let value_opt = match &self.selected_tree {
+            Some(tree_name) => {
+                let tree = self.get_tree(tree_name)?;
+                tree.get(key_bytes)?
+            }
+            None => self.db.get(key_bytes)?,
+        };
+
+        match value_opt {
+            Some(value) => {
+                let is_utf8 = std::str::from_utf8(&value).is_ok();
+                let value_str = String::from_utf8_lossy(&value).to_string();
+                let size = value.len();
+                Ok(KeyInfo {
+                    key: format_key_bytes(key_bytes),
+                    value: value_str,
+                    size,
+                    is_utf8,
+                })
+            }
+            None => Err(SledoViewError::KeyNotFound {
+                key: format_key_bytes(key_bytes),
+            }
+            .into()),
+        }
+    }
+
     pub fn search_values(&self, pattern: &str, is_regex: bool) -> Result<Vec<KeyValuePair>> {
         let mut results = Vec::new();
 
@@ -137,7 +246,7 @@ impl SledViewer {
                         let value_str = String::from_utf8_lossy(&value);
                         if regex.is_match(&value_str) {
                             results.push(KeyValuePair {
-                                key: String::from_utf8_lossy(&key).to_string(),
+                                key: format_key_bytes(&key),
                                 value: value_str.to_string(),
                             });
                         }
@@ -149,7 +258,7 @@ impl SledViewer {
                         let value_str = String::from_utf8_lossy(&value);
                         if regex.is_match(&value_str) {
                             results.push(KeyValuePair {
-                                key: String::from_utf8_lossy(&key).to_string(),
+                                key: format_key_bytes(&key),
                                 value: value_str.to_string(),
                             });
                         }
@@ -171,7 +280,7 @@ impl SledViewer {
                         let value_str = String::from_utf8_lossy(&value);
                         if regex.is_match(&value_str) {
                             results.push(KeyValuePair {
-                                key: String::from_utf8_lossy(&key).to_string(),
+                                key: format_key_bytes(&key),
                                 value: value_str.to_string(),
                             });
                         }
@@ -183,7 +292,7 @@ impl SledViewer {
                         let value_str = String::from_utf8_lossy(&value);
                         if regex.is_match(&value_str) {
                             results.push(KeyValuePair {
-                                key: String::from_utf8_lossy(&key).to_string(),
+                                key: format_key_bytes(&key),
                                 value: value_str.to_string(),
                             });
                         }
@@ -341,6 +450,46 @@ pub struct KeyInfo {
 pub struct KeyValuePair {
     pub key: String,
     pub value: String,
+}
+
+/// Format raw key bytes for display.
+///
+/// - Valid UTF-8: returned as the decoded string.
+/// - Binary / invalid UTF-8: displayed as uppercase hex.  
+///   If the hex representation exceeds 12 characters it is shortened to
+///   `XXXX....XXXX` (first 4 hex digits, four dots, last 4 hex digits).
+pub fn format_key_bytes(bytes: &[u8]) -> String {
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_string();
+    }
+    let hex: String = bytes.iter().map(|b| format!("{:02X}", b)).collect();
+    if hex.len() > 12 {
+        format!("{}....{}", &hex[..4], &hex[hex.len() - 4..])
+    } else {
+        hex
+    }
+}
+
+/// Returns `true` when a sled error indicates the database lock is held by
+/// another process.  Mirrors the logic in `validator::is_lock_error`.
+fn is_sled_lock_error(err: &sled::Error) -> bool {
+    if let sled::Error::Io(io_err) = err {
+        match io_err.kind() {
+            std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::WouldBlock => return true,
+            std::io::ErrorKind::Other => {
+                if let Some(os_code) = io_err.raw_os_error() {
+                    if os_code == 32 || os_code == 33 {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+        if io_err.to_string().to_lowercase().contains("lock") {
+            return true;
+        }
+    }
+    err.to_string().to_lowercase().contains("lock")
 }
 
 fn glob_to_regex(pattern: &str) -> String {
