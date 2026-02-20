@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-20
+
+### Added
+- **Binary key support** - Keys that are not valid UTF-8 are now displayed as uppercase hex (`AABBCCDD....EEFF`), with truncation for long keys
+  - New `list_keys_raw()` and `get_key_bytes()` API methods for raw-byte key access
+  - `format_key_bytes()` and `format_key_bytes_full()` helpers for consistent binary key display
+  - `find_key_by_hex_suffix()` to locate a binary key from its truncated hex display (e.g. `get 61F8`)
+- **`ls` alias** - `ls` now works as a shorthand for the `list` command, including tab completion
+- **Usage error messages** - New `UsageError` command variant returns a descriptive message and usage hint when a known command is called with wrong or missing arguments
+- **Improved database lock detection** - Cross-platform lock error recognition covering POSIX `EWOULDBLOCK`/`EAGAIN` and Windows `ERROR_LOCK_VIOLATION` (33) / `ERROR_SHARING_VIOLATION` (32), plus message-text fallback
+- **User-friendly startup errors** - `startup_error_and_exit()` prints a clear, coloured message when the database cannot be opened (including a dedicated hint for lock conflicts)
+
+### Changed
+- History is now stored in memory (`MemHistory`) instead of on disk; entries are only recorded for commands that succeed or produce a non-usage error
+- `list_keys()` now returns keys in sorted order
+- Regex creation refactored into a shared `create_regex()` helper, eliminating duplicated glob-to-regex conversion across all query methods
+- `load_keys()` and `load_trees()` no longer propagate errors (warnings printed instead), simplifying call-sites
+- Updated dependency versions
+
+### Fixed
+- Database lock errors on Windows were previously not detected at all; they now produce the dedicated `DatabaseLocked` error with a clear remediation message
+- `list` tab completion was not triggered for the `ls` alias
+
+### Technical Improvements
+- Applied Clippy lints throughout: `if let` over `match` for single-arm patterns, string interpolation (`format!("{x}")` → `format!("{x}")`), `#[must_use]` on pure functions, and `#[allow(clippy::unnecessary_wraps)]` where public API stability requires it
+- `list_trees()` return type tightened to `Result<Vec<String>, SledoViewError>` (no longer erased via `anyhow`)
+- `KeyInfo.key` documentation clarified to state the full/truncated hex convention for binary keys
+
 ## [1.0.3] - 2025-08-24
 
 ### Added
@@ -53,11 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added proper error types and handling for all operations
 - Implemented key validation with security best practices
 
-## [1.1.0] - 2025-01-19
-
-### Legacy Entry
-This version entry was incorrectly dated and has been superseded by v1.0.3.
-
 ## [0.1.0] - 2024-08-20
 
 ### Added
@@ -102,6 +125,7 @@ This version entry was incorrectly dated and has been superseded by v1.0.3.
 - Example database creation script
 - Full command reference with examples
 
-[Unreleased]: https://github.com/sgchris/sledoview/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/sgchris/sledoview/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/sgchris/sledoview/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/sgchris/sledoview/compare/v0.1.0...v1.0.3
 [0.1.0]: https://github.com/sgchris/sledoview/releases/tag/v0.1.0
