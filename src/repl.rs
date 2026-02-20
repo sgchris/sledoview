@@ -1,5 +1,6 @@
 use crate::commands::Command;
 use crate::db::SledViewer;
+use anyhow::Result;
 use colored::*;
 use rustyline::error::ReadlineError;
 use rustyline::history::FileHistory;
@@ -282,7 +283,8 @@ impl Repl {
         false
     }
 
-    pub fn run(&mut self) {
+    #[allow(clippy::unnecessary_wraps)] // avoid breaking public API
+    pub fn run(&mut self) -> Result<()> {
         println!();
         println!(
             "{}",
@@ -429,6 +431,7 @@ impl Repl {
                 }
             }
         }
+        Ok(())
     }
 
     fn show_completions(&self, line: &str) {

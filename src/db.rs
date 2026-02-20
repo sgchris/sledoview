@@ -285,10 +285,11 @@ impl SledViewer {
     }
 
     /// Unselect the current tree
-    pub fn unselect_tree(&mut self) -> bool {
+    #[allow(clippy::unnecessary_wraps)] // avoid breaking public API
+    pub fn unselect_tree(&mut self) -> Result<bool> {
         let was_selected = self.selected_tree.is_some();
         self.selected_tree = None;
-        was_selected
+        Ok(was_selected)
     }
 
     /// Get the currently selected tree name
@@ -570,12 +571,12 @@ mod tests {
         assert_eq!(viewer.get_selected_tree().unwrap(), "test_tree");
 
         // Unselect tree
-        let was_selected = viewer.unselect_tree();
+        let was_selected = viewer.unselect_tree().unwrap();
         assert!(was_selected);
         assert!(viewer.get_selected_tree().is_none());
 
         // Unselect when none selected
-        let was_selected = viewer.unselect_tree();
+        let was_selected = viewer.unselect_tree().unwrap();
         assert!(!was_selected);
     }
 
@@ -673,7 +674,7 @@ mod tests {
         assert_eq!(info.value, "tree_value");
 
         // Key shouldn't exist in default tree
-        viewer.unselect_tree();
+        viewer.unselect_tree().unwrap();
         assert!(viewer.get_key("tree_key").is_err());
 
         // But default key should still exist

@@ -434,7 +434,7 @@ impl Command {
                 }
             },
             Command::Unselect => {
-                let was_selected = viewer.unselect_tree();
+                let was_selected = viewer.unselect_tree()?;
                 if was_selected {
                     println!(
                         "{} {}",

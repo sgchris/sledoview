@@ -57,7 +57,7 @@ fn main() -> Result<()> {
 
     // Start the REPL
     let mut repl = Repl::new(viewer);
-    repl.run();
+    repl.run()?;
 
     Ok(())
 }
