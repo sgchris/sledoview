@@ -74,7 +74,7 @@ impl SledViewer {
 
         if let Some(tree_name) = &self.selected_tree {
             let tree = self.get_tree(tree_name)?;
-            for result in tree.iter() {
+            for result in &tree {
                 let (key, _) = result?;
                 let key_str = String::from_utf8_lossy(&key);
                 if regex.is_match(&key_str) {
@@ -128,12 +128,11 @@ impl SledViewer {
     /// Required for keys that are stored as binary data (e.g. big-endian `u64`
     /// timestamps).  The `KeyInfo.key` field is populated via [`format_key_bytes`].
     pub fn get_key_bytes(&self, key_bytes: &[u8]) -> Result<KeyInfo> {
-        let value_opt = match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                tree.get(key_bytes)?
-            }
-            None => self.db.get(key_bytes)?,
+        let value_opt = if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            tree.get(key_bytes)?
+        } else {
+            self.db.get(key_bytes)?
         };
 
         match value_opt {
@@ -184,22 +183,19 @@ impl SledViewer {
             }
         };
 
-        match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                for result in tree.iter() {
-                    let (key, value) = result?;
-                    if let Some(info) = try_match(&key, &value) {
-                        return Ok(Some(info));
-                    }
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            for result in &tree {
+                let (key, value) = result?;
+                if let Some(info) = try_match(&key, &value) {
+                    return Ok(Some(info));
                 }
             }
-            None => {
-                for result in self.db.iter() {
-                    let (key, value) = result?;
-                    if let Some(info) = try_match(&key, &value) {
-                        return Ok(Some(info));
-                    }
+        } else {
+            for result in self.db.iter() {
+                let (key, value) = result?;
+                if let Some(info) = try_match(&key, &value) {
+                    return Ok(Some(info));
                 }
             }
         }
@@ -214,7 +210,7 @@ impl SledViewer {
 
         if let Some(tree_name) = &self.selected_tree {
             let tree = self.get_tree(tree_name)?;
-            for result in tree.iter() {
+            for result in &tree {
                 let (key, value) = result?;
                 let value_str = String::from_utf8_lossy(&value);
                 if regex.is_match(&value_str) {
@@ -377,11 +373,12 @@ pub struct KeyValuePair {
 /// - Binary / invalid UTF-8: displayed as uppercase hex.
 ///   If the hex representation exceeds 32 characters it is shortened to
 ///   `XXXXXXXX....XXXXXXXX` (first 8 hex digits, four dots, last 8 hex digits).
+#[must_use]
 pub fn format_key_bytes(bytes: &[u8]) -> String {
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
     }
-    let hex: String = bytes.iter().map(|b| format!("{:02X}", b)).collect();
+    let hex: String = bytes.iter().map(|b| format!("{b:02X}")).collect();
     if hex.len() > 32 {
         format!("{}....{}", &hex[..8], &hex[hex.len() - 8..])
     } else {
@@ -391,11 +388,12 @@ pub fn format_key_bytes(bytes: &[u8]) -> String {
 
 /// Like [`format_key_bytes`] but never truncates — always returns the full
 /// UTF-8 string or the complete uppercase hex representation.
+#[must_use]
 pub fn format_key_bytes_full(bytes: &[u8]) -> String {
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
     }
-    bytes.iter().map(|b| format!("{:02X}", b)).collect()
+    bytes.iter().map(|b| format!("{b:02X}")).collect()
 }
 
 /// Returns `true` when a sled error indicates the database lock is held by

@@ -73,8 +73,7 @@ fn startup_error_and_exit(err: anyhow::Error) -> ! {
     // Check for the DatabaseLocked variant specifically.
     let is_locked = err
         .downcast_ref::<SledoViewError>()
-        .map(|e| matches!(e, SledoViewError::DatabaseLocked { .. }))
-        .unwrap_or(false);
+        .is_some_and(|e| matches!(e, SledoViewError::DatabaseLocked { .. }));
 
     if is_locked {
         eprintln!(

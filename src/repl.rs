@@ -180,7 +180,7 @@ impl Repl {
                 }
             }
             Err(e) => {
-                eprintln!("Warning: Failed to load keys for completion: {}", e);
+                eprintln!("Warning: Failed to load keys for completion: {e}");
             }
         }
     }
@@ -335,8 +335,8 @@ impl Repl {
                     }
 
                     // Check for completion command (keep this for manual completion)
-                    if line.starts_with("complete ") {
-                        let completion_line = &line[9..]; // Remove "complete "
+                    if let Some(completion_line) = line.strip_prefix("complete ") {
+                        // Remove "complete "
                         self.show_completions(completion_line);
                         continue;
                     }
@@ -378,18 +378,19 @@ impl Repl {
                                 }
                             }
                             continue;
-                        } else {
-                            let completions = self.find_completions(line);
-                            if !completions.is_empty() {
-                                println!(
-                                    "{} {} {}. {}",
-                                    "Found".bright_blue(),
-                                    completions.len().to_string().bright_yellow().bold(),
-                                    "possible completions".bright_blue(),
-                                    format!("Type 'complete {}' to see them.", line).yellow()
-                                );
-                                continue;
-                            }
+                        }
+
+                        // Couldn't find *one single* completion to use
+                        let completions = self.find_completions(line);
+                        if !completions.is_empty() {
+                            println!(
+                                "{} {} {}. {}",
+                                "Found".bright_blue(),
+                                completions.len().to_string().bright_yellow().bold(),
+                                "possible completions".bright_blue(),
+                                format!("Type 'complete {line}' to see them.").yellow()
+                            );
+                            continue;
                         }
                     }
 

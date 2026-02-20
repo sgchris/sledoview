@@ -273,6 +273,7 @@ impl Command {
 
     /// Returns `true` for `UsageError` variants, so callers can skip adding
     /// them to command history.
+    #[must_use]
     pub fn is_usage_error(&self) -> bool {
         matches!(self, Command::UsageError { .. })
     }
