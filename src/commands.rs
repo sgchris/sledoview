@@ -382,19 +382,32 @@ impl Command {
                 if results.is_empty() {
                     println!("{}", "No values found matching the pattern.".yellow());
                 } else {
+                    let total_count = results.len();
+                    let display_results = if total_count > 50 {
+                        &results[0..50]
+                    } else {
+                        &results[..]
+                    };
                     println!(
                         "{} {} {}",
                         "Found".bright_blue(),
-                        results.len().to_string().bright_yellow().bold(),
+                        total_count.to_string().bright_yellow().bold(),
                         "matches:".bright_blue()
                     );
-                    for (i, pair) in results.iter().enumerate() {
+                    for (i, pair) in display_results.iter().enumerate() {
                         println!(
                             "  {}: {} {} {}",
                             (i + 1).to_string().bright_black(),
                             pair.key.bright_cyan().bold(),
                             "=>".bright_black(),
                             truncate_value(&pair.value, 100).bright_white()
+                        );
+                    }
+                    if total_count > 50 {
+                        println!(
+                            "{}",
+                            format!("... and {} more matches (showing first 50)", total_count - 50)
+                                .bright_yellow()
                         );
                     }
                 }

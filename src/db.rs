@@ -217,7 +217,7 @@ impl SledViewer {
                 let value_str = String::from_utf8_lossy(&value).to_string();
                 let size = value.len();
                 Ok(KeyInfo {
-                    key: format_key_bytes(key_bytes),
+                    key: format_key_bytes_full(key_bytes),
                     value: value_str,
                     size,
                     is_utf8,
@@ -249,7 +249,7 @@ impl SledViewer {
                 let is_utf8 = std::str::from_utf8(value).is_ok();
                 let value_str = String::from_utf8_lossy(value).to_string();
                 Some(KeyInfo {
-                    key: format_key_bytes(key),
+                    key: format_key_bytes_full(key),
                     value: value_str,
                     size: value.len(),
                     is_utf8,
@@ -492,6 +492,7 @@ impl SledViewer {
 
 #[derive(Debug)]
 pub struct KeyInfo {
+    /// Full key string: UTF-8 decoded for text keys, complete uppercase hex for binary keys.
     pub key: String,
     pub value: String,
     pub size: usize,
@@ -508,18 +509,27 @@ pub struct KeyValuePair {
 ///
 /// - Valid UTF-8: returned as the decoded string.
 /// - Binary / invalid UTF-8: displayed as uppercase hex.  
-///   If the hex representation exceeds 16 characters it is shortened to
-///   `XXXX....XXXXXXXX` (first 4 hex digits, four dots, last 8 hex digits).
+///   If the hex representation exceeds 32 characters it is shortened to
+///   `XXXXXXXX....XXXXXXXX` (first 8 hex digits, four dots, last 8 hex digits).
 pub fn format_key_bytes(bytes: &[u8]) -> String {
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
     }
     let hex: String = bytes.iter().map(|b| format!("{:02X}", b)).collect();
-    if hex.len() > 16 {
-        format!("{}....{}", &hex[..4], &hex[hex.len() - 8..])
+    if hex.len() > 32 {
+        format!("{}....{}", &hex[..8], &hex[hex.len() - 8..])
     } else {
         hex
     }
+}
+
+/// Like [`format_key_bytes`] but never truncates — always returns the full
+/// UTF-8 string or the complete uppercase hex representation.
+pub fn format_key_bytes_full(bytes: &[u8]) -> String {
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_string();
+    }
+    bytes.iter().map(|b| format!("{:02X}", b)).collect()
 }
 
 /// Returns `true` when a sled error indicates the database lock is held by
