@@ -50,7 +50,9 @@ impl rustyline::completion::Completer for SledCompleter {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls")
+                    && parts.len() >= 2
+                    && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // We're completing a key - find the current word being typed
@@ -150,10 +152,13 @@ pub struct Repl {
 }
 
 impl Repl {
+    #[must_use]
     pub fn new(viewer: SledViewer) -> Self {
-        let mut editor =
-            Editor::<SledCompleter, MemHistory>::with_history(rustyline::Config::default(), MemHistory::new())
-                .expect("Failed to create readline editor");
+        let mut editor = Editor::<SledCompleter, MemHistory>::with_history(
+            rustyline::Config::default(),
+            MemHistory::new(),
+        )
+        .expect("Failed to create readline editor");
         let completer = SledCompleter::new();
         editor.set_helper(Some(completer));
 
@@ -165,36 +170,32 @@ impl Repl {
         }
     }
 
-    fn load_keys(&mut self) -> Result<()> {
+    fn load_keys(&mut self) {
         match self.viewer.list_keys("*", false) {
             Ok(keys) => {
-                self.keys = keys.clone();
+                keys.clone_into(&mut self.keys);
                 // Update the completer with new keys
                 if let Some(helper) = self.editor.helper_mut() {
                     helper.update_keys(keys);
                 }
-                Ok(())
             }
             Err(e) => {
-                eprintln!("Warning: Failed to load keys for completion: {}", e);
-                Ok(())
+                eprintln!("Warning: Failed to load keys for completion: {e}");
             }
         }
     }
 
-    fn load_trees(&mut self) -> Result<()> {
+    fn load_trees(&mut self) {
         match self.viewer.list_trees("*", false) {
             Ok(trees) => {
-                self.trees = trees.clone();
+                trees.clone_into(&mut self.trees);
                 // Update the completer with new trees
                 if let Some(helper) = self.editor.helper_mut() {
                     helper.update_trees(trees);
                 }
-                Ok(())
             }
             Err(e) => {
-                eprintln!("Warning: Failed to load trees for completion: {}", e);
-                Ok(())
+                eprintln!("Warning: Failed to load trees for completion: {e}");
             }
         }
     }
@@ -208,7 +209,9 @@ impl Repl {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls")
+                    && parts.len() >= 2
+                    && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // Find the current word being typed
@@ -288,6 +291,7 @@ impl Repl {
         false
     }
 
+    #[allow(clippy::unnecessary_wraps)] // avoid breaking public API
     pub fn run(&mut self) -> Result<()> {
         println!();
         println!(
@@ -305,13 +309,13 @@ impl Repl {
         println!();
 
         // Load keys and trees for completion
-        self.load_keys()?;
-        self.load_trees()?;
+        self.load_keys();
+        self.load_trees();
 
         loop {
             // Create prompt that shows selected tree
             let prompt = match self.viewer.get_selected_tree() {
-                Some(tree) => format!("[{}]> ", tree),
+                Some(tree) => format!("[{tree}]> "),
                 None => "> ".to_string(),
             };
 
@@ -331,8 +335,8 @@ impl Repl {
                     }
 
                     // Check for completion command (keep this for manual completion)
-                    if line.starts_with("complete ") {
-                        let completion_line = &line[9..]; // Remove "complete "
+                    if let Some(completion_line) = line.strip_prefix("complete ") {
+                        // Remove "complete "
                         self.show_completions(completion_line);
                         continue;
                     }
@@ -362,8 +366,8 @@ impl Repl {
                                         let _ = self.editor.add_history_entry(&completed);
                                     }
                                     // Reload keys and trees after any command in case database changed
-                                    self.load_keys()?;
-                                    self.load_trees()?;
+                                    self.load_keys();
+                                    self.load_trees();
                                 }
                                 None => {
                                     println!(
@@ -374,18 +378,19 @@ impl Repl {
                                 }
                             }
                             continue;
-                        } else {
-                            let completions = self.find_completions(line);
-                            if !completions.is_empty() {
-                                println!(
-                                    "{} {} {}. {}",
-                                    "Found".bright_blue(),
-                                    completions.len().to_string().bright_yellow().bold(),
-                                    "possible completions".bright_blue(),
-                                    format!("Type 'complete {}' to see them.", line).yellow()
-                                );
-                                continue;
-                            }
+                        }
+
+                        // Couldn't find *one single* completion to use
+                        let completions = self.find_completions(line);
+                        if !completions.is_empty() {
+                            println!(
+                                "{} {} {}. {}",
+                                "Found".bright_blue(),
+                                completions.len().to_string().bright_yellow().bold(),
+                                "possible completions".bright_blue(),
+                                format!("Type 'complete {line}' to see them.").yellow()
+                            );
+                            continue;
                         }
                     }
 
@@ -405,8 +410,8 @@ impl Repl {
                                 let _ = self.editor.add_history_entry(line);
                             }
                             // Reload keys and trees after any command in case database changed
-                            self.load_keys()?;
-                            self.load_trees()?;
+                            self.load_keys();
+                            self.load_trees();
                         }
                         None => {
                             println!(
@@ -423,7 +428,6 @@ impl Repl {
                     // doesn't give us access to the current line content on interrupt
                     println!("^C");
                     println!("{}", "Use 'exit' or Ctrl-D to quit.".bright_black());
-                    continue;
                 }
                 Err(ReadlineError::Eof) => {
                     println!("{}", "Goodbye!".bright_green());
@@ -435,7 +439,6 @@ impl Repl {
                 }
             }
         }
-
         Ok(())
     }
 

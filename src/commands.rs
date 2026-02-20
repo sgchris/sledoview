@@ -8,43 +8,42 @@ fn parse_quoted_args(input: &str) -> Vec<String> {
     let mut current_arg = String::new();
     let mut in_quotes = false;
     let mut escape_next = false;
-    let mut chars = input.chars().peekable();
 
-    while let Some(ch) = chars.next() {
+    for ch in input.chars() {
         if escape_next {
             current_arg.push(ch);
             escape_next = false;
-        } else {
-            match ch {
-                '\\' => {
-                    escape_next = true;
-                }
-                '"' => {
-                    if in_quotes {
-                        // End of quoted string - always push even if empty
-                        in_quotes = false;
-                        args.push(current_arg.clone());
-                        current_arg.clear();
-                    } else {
-                        // Start of quoted string
-                        in_quotes = true;
-                        if !current_arg.is_empty() {
-                            args.push(current_arg.clone());
-                            current_arg.clear();
-                        }
-                    }
-                }
-                ' ' | '\t' => {
-                    if in_quotes {
-                        current_arg.push(ch);
-                    } else if !current_arg.is_empty() {
+            continue;
+        }
+        match ch {
+            '\\' => {
+                escape_next = true;
+            }
+            '"' => {
+                if in_quotes {
+                    // End of quoted string - always push even if empty
+                    in_quotes = false;
+                    args.push(current_arg.clone());
+                    current_arg.clear();
+                } else {
+                    // Start of quoted string
+                    in_quotes = true;
+                    if !current_arg.is_empty() {
                         args.push(current_arg.clone());
                         current_arg.clear();
                     }
                 }
-                _ => {
+            }
+            ' ' | '\t' => {
+                if in_quotes {
                     current_arg.push(ch);
+                } else if !current_arg.is_empty() {
+                    args.push(current_arg.clone());
+                    current_arg.clear();
                 }
+            }
+            _ => {
+                current_arg.push(ch);
             }
         }
     }
@@ -71,8 +70,7 @@ fn validate_key(key: &str) -> Result<(), String> {
     for ch in key.chars() {
         if !ch.is_ascii_alphanumeric() && !matches!(ch, '_' | '-' | '.' | ':' | '/' | ' ') {
             return Err(format!(
-                "Invalid character '{}' in key. Allowed: a-z, A-Z, 0-9, _, -, ., :, /, space",
-                ch
+                "Invalid character '{ch}' in key. Allowed: a-z, A-Z, 0-9, _, -, ., :, /, space",
             ));
         }
     }
@@ -83,21 +81,43 @@ fn validate_key(key: &str) -> Result<(), String> {
 #[derive(Debug)]
 pub enum Command {
     Count,
-    List { pattern: String, is_regex: bool },
-    Get { key: String },
-    Set { key: String, value: String },
-    Delete { key: String },
-    Search { pattern: String, is_regex: bool },
-    Trees { pattern: String, is_regex: bool },
-    Select { tree: String },
+    List {
+        pattern: String,
+        is_regex: bool,
+    },
+    Get {
+        key: String,
+    },
+    Set {
+        key: String,
+        value: String,
+    },
+    Delete {
+        key: String,
+    },
+    Search {
+        pattern: String,
+        is_regex: bool,
+    },
+    Trees {
+        pattern: String,
+        is_regex: bool,
+    },
+    Select {
+        tree: String,
+    },
     Unselect,
     Help,
     Exit,
     /// A known command was typed but with wrong/missing arguments.
-    UsageError { message: String, usage: String },
+    UsageError {
+        message: String,
+        usage: String,
+    },
 }
 
 impl Command {
+    #[must_use]
     pub fn parse(input: &str) -> Option<Command> {
         let args = parse_quoted_args(input);
 
@@ -248,11 +268,12 @@ impl Command {
 
         // For longer values, show a preview with truncation
         let preview = info.value.chars().take(47).collect::<String>();
-        format!("{}...", preview).bright_green().to_string()
+        format!("{preview}...").bright_green().to_string()
     }
 
     /// Returns `true` for `UsageError` variants, so callers can skip adding
     /// them to command history.
+    #[must_use]
     pub fn is_usage_error(&self) -> bool {
         matches!(self, Command::UsageError { .. })
     }
@@ -351,7 +372,7 @@ impl Command {
                 }
 
                 match viewer.set_key(key, value) {
-                    Ok(_) => {
+                    Ok(()) => {
                         println!(
                             "{} {} {} {}",
                             "✓".bright_green().bold(),
@@ -438,8 +459,11 @@ impl Command {
                     if total_count > 50 {
                         println!(
                             "{}",
-                            format!("... and {} more matches (showing first 50)", total_count - 50)
-                                .bright_yellow()
+                            format!(
+                                "... and {} more matches (showing first 50)",
+                                total_count - 50
+                            )
+                            .bright_yellow()
                         );
                     }
                 }
@@ -477,7 +501,7 @@ impl Command {
                 }
             }
             Command::Select { tree } => match viewer.select_tree(tree) {
-                Ok(_) => {
+                Ok(()) => {
                     println!(
                         "{} {} {}",
                         "✓".bright_green().bold(),
@@ -495,31 +519,22 @@ impl Command {
                     );
                 }
             },
-            Command::Unselect => match viewer.unselect_tree() {
-                Ok(was_selected) => {
-                    if was_selected {
-                        println!(
-                            "{} {}",
-                            "✓".bright_green().bold(),
-                            "Tree unselected. Now working with the default tree.".bright_green()
-                        );
-                    } else {
-                        println!(
-                            "{} {}",
-                            "!".bright_yellow().bold(),
-                            "No tree was previously selected.".bright_yellow()
-                        );
-                    }
-                }
-                Err(e) => {
+            Command::Unselect => {
+                let was_selected = viewer.unselect_tree()?;
+                if was_selected {
                     println!(
-                        "{} {} {}",
-                        "✗".bright_red().bold(),
-                        "Failed to unselect tree:".bright_red(),
-                        e.to_string().red()
+                        "{} {}",
+                        "✓".bright_green().bold(),
+                        "Tree unselected. Now working with the default tree.".bright_green()
+                    );
+                } else {
+                    println!(
+                        "{} {}",
+                        "!".bright_yellow().bold(),
+                        "No tree was previously selected.".bright_yellow()
                     );
                 }
-            },
+            }
             Command::Help => {
                 print_help();
             }

@@ -29,70 +29,33 @@ impl SledViewer {
     }
 
     pub fn count(&self) -> Result<usize> {
-        match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                Ok(tree.len())
-            }
-            None => Ok(self.db.len()),
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            Ok(tree.len())
+        } else {
+            Ok(self.db.len())
         }
     }
 
     pub fn list_keys(&self, pattern: &str, is_regex: bool) -> Result<Vec<String>> {
         let mut keys = Vec::new();
+        let regex = create_regex(pattern, is_regex)?;
 
-        if is_regex {
-            let regex = Regex::new(pattern).map_err(|_| SledoViewError::InvalidRegex {
-                pattern: pattern.to_string(),
-            })?;
-
-            match &self.selected_tree {
-                Some(tree_name) => {
-                    let tree = self.get_tree(tree_name)?;
-                    for result in tree.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key_str.to_string());
-                        }
-                    }
-                }
-                None => {
-                    for result in self.db.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key_str.to_string());
-                        }
-                    }
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            for result in &tree {
+                let (key, _) = result?;
+                let key_str = String::from_utf8_lossy(&key);
+                if regex.is_match(&key_str) {
+                    keys.push(key_str.to_string());
                 }
             }
         } else {
-            // Convert glob pattern to regex
-            let regex_pattern = glob_to_regex(pattern);
-            let regex = Regex::new(&regex_pattern).map_err(|_| SledoViewError::InvalidRegex {
-                pattern: pattern.to_string(),
-            })?;
-
-            match &self.selected_tree {
-                Some(tree_name) => {
-                    let tree = self.get_tree(tree_name)?;
-                    for result in tree.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key_str.to_string());
-                        }
-                    }
-                }
-                None => {
-                    for result in self.db.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key_str.to_string());
-                        }
-                    }
+            for result in self.db.iter() {
+                let (key, _) = result?;
+                let key_str = String::from_utf8_lossy(&key);
+                if regex.is_match(&key_str) {
+                    keys.push(key_str.to_string());
                 }
             }
         }
@@ -107,59 +70,23 @@ impl SledViewer {
     /// that are not valid UTF-8 (e.g. big-endian encoded `u64` timestamps).
     pub fn list_keys_raw(&self, pattern: &str, is_regex: bool) -> Result<Vec<Vec<u8>>> {
         let mut keys: Vec<Vec<u8>> = Vec::new();
+        let regex = create_regex(pattern, is_regex)?;
 
-        if is_regex {
-            let regex = Regex::new(pattern).map_err(|_| SledoViewError::InvalidRegex {
-                pattern: pattern.to_string(),
-            })?;
-
-            match &self.selected_tree {
-                Some(tree_name) => {
-                    let tree = self.get_tree(tree_name)?;
-                    for result in tree.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key.to_vec());
-                        }
-                    }
-                }
-                None => {
-                    for result in self.db.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key.to_vec());
-                        }
-                    }
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            for result in &tree {
+                let (key, _) = result?;
+                let key_str = String::from_utf8_lossy(&key);
+                if regex.is_match(&key_str) {
+                    keys.push(key.to_vec());
                 }
             }
         } else {
-            // Convert glob pattern to regex
-            let regex_pattern = glob_to_regex(pattern);
-            let regex = Regex::new(&regex_pattern).map_err(|_| SledoViewError::InvalidRegex {
-                pattern: pattern.to_string(),
-            })?;
-
-            match &self.selected_tree {
-                Some(tree_name) => {
-                    let tree = self.get_tree(tree_name)?;
-                    for result in tree.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key.to_vec());
-                        }
-                    }
-                }
-                None => {
-                    for result in self.db.iter() {
-                        let (key, _) = result?;
-                        let key_str = String::from_utf8_lossy(&key);
-                        if regex.is_match(&key_str) {
-                            keys.push(key.to_vec());
-                        }
-                    }
+            for result in self.db.iter() {
+                let (key, _) = result?;
+                let key_str = String::from_utf8_lossy(&key);
+                if regex.is_match(&key_str) {
+                    keys.push(key.to_vec());
                 }
             }
         }
@@ -171,30 +98,28 @@ impl SledViewer {
     pub fn get_key(&self, key: &str) -> Result<KeyInfo> {
         let key_bytes = key.as_bytes();
 
-        let value_opt = match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                tree.get(key_bytes)?
-            }
-            None => self.db.get(key_bytes)?,
+        let value_opt = if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            tree.get(key_bytes)?
+        } else {
+            self.db.get(key_bytes)?
         };
 
-        match value_opt {
-            Some(value) => {
-                let value_str = String::from_utf8_lossy(&value);
-                let size = value.len();
+        if let Some(value) = value_opt {
+            let value_str = String::from_utf8_lossy(&value);
+            let size = value.len();
 
-                Ok(KeyInfo {
-                    key: key.to_string(),
-                    value: value_str.to_string(),
-                    size,
-                    is_utf8: String::from_utf8(value.to_vec()).is_ok(),
-                })
-            }
-            None => Err(SledoViewError::KeyNotFound {
+            Ok(KeyInfo {
+                key: key.to_string(),
+                value: value_str.to_string(),
+                size,
+                is_utf8: String::from_utf8(value.to_vec()).is_ok(),
+            })
+        } else {
+            Err(SledoViewError::KeyNotFound {
                 key: key.to_string(),
             }
-            .into()),
+            .into())
         }
     }
 
@@ -203,12 +128,11 @@ impl SledViewer {
     /// Required for keys that are stored as binary data (e.g. big-endian `u64`
     /// timestamps).  The `KeyInfo.key` field is populated via [`format_key_bytes`].
     pub fn get_key_bytes(&self, key_bytes: &[u8]) -> Result<KeyInfo> {
-        let value_opt = match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                tree.get(key_bytes)?
-            }
-            None => self.db.get(key_bytes)?,
+        let value_opt = if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            tree.get(key_bytes)?
+        } else {
+            self.db.get(key_bytes)?
         };
 
         match value_opt {
@@ -259,22 +183,19 @@ impl SledViewer {
             }
         };
 
-        match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                for result in tree.iter() {
-                    let (key, value) = result?;
-                    if let Some(info) = try_match(&key, &value) {
-                        return Ok(Some(info));
-                    }
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            for result in &tree {
+                let (key, value) = result?;
+                if let Some(info) = try_match(&key, &value) {
+                    return Ok(Some(info));
                 }
             }
-            None => {
-                for result in self.db.iter() {
-                    let (key, value) = result?;
-                    if let Some(info) = try_match(&key, &value) {
-                        return Ok(Some(info));
-                    }
+        } else {
+            for result in self.db.iter() {
+                let (key, value) = result?;
+                if let Some(info) = try_match(&key, &value) {
+                    return Ok(Some(info));
                 }
             }
         }
@@ -285,70 +206,29 @@ impl SledViewer {
     pub fn search_values(&self, pattern: &str, is_regex: bool) -> Result<Vec<KeyValuePair>> {
         let mut results = Vec::new();
 
-        if is_regex {
-            let regex = Regex::new(pattern).map_err(|_| SledoViewError::InvalidRegex {
-                pattern: pattern.to_string(),
-            })?;
+        let regex = create_regex(pattern, is_regex)?;
 
-            match &self.selected_tree {
-                Some(tree_name) => {
-                    let tree = self.get_tree(tree_name)?;
-                    for result in tree.iter() {
-                        let (key, value) = result?;
-                        let value_str = String::from_utf8_lossy(&value);
-                        if regex.is_match(&value_str) {
-                            results.push(KeyValuePair {
-                                key: format_key_bytes(&key),
-                                value: value_str.to_string(),
-                            });
-                        }
-                    }
-                }
-                None => {
-                    for result in self.db.iter() {
-                        let (key, value) = result?;
-                        let value_str = String::from_utf8_lossy(&value);
-                        if regex.is_match(&value_str) {
-                            results.push(KeyValuePair {
-                                key: format_key_bytes(&key),
-                                value: value_str.to_string(),
-                            });
-                        }
-                    }
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            for result in &tree {
+                let (key, value) = result?;
+                let value_str = String::from_utf8_lossy(&value);
+                if regex.is_match(&value_str) {
+                    results.push(KeyValuePair {
+                        key: format_key_bytes(&key),
+                        value: value_str.to_string(),
+                    });
                 }
             }
         } else {
-            // Convert glob pattern to regex
-            let regex_pattern = glob_to_regex(pattern);
-            let regex = Regex::new(&regex_pattern).map_err(|_| SledoViewError::InvalidRegex {
-                pattern: pattern.to_string(),
-            })?;
-
-            match &self.selected_tree {
-                Some(tree_name) => {
-                    let tree = self.get_tree(tree_name)?;
-                    for result in tree.iter() {
-                        let (key, value) = result?;
-                        let value_str = String::from_utf8_lossy(&value);
-                        if regex.is_match(&value_str) {
-                            results.push(KeyValuePair {
-                                key: format_key_bytes(&key),
-                                value: value_str.to_string(),
-                            });
-                        }
-                    }
-                }
-                None => {
-                    for result in self.db.iter() {
-                        let (key, value) = result?;
-                        let value_str = String::from_utf8_lossy(&value);
-                        if regex.is_match(&value_str) {
-                            results.push(KeyValuePair {
-                                key: format_key_bytes(&key),
-                                value: value_str.to_string(),
-                            });
-                        }
-                    }
+            for result in self.db.iter() {
+                let (key, value) = result?;
+                let value_str = String::from_utf8_lossy(&value);
+                if regex.is_match(&value_str) {
+                    results.push(KeyValuePair {
+                        key: format_key_bytes(&key),
+                        value: value_str.to_string(),
+                    });
                 }
             }
         }
@@ -359,70 +239,64 @@ impl SledViewer {
 
     /// Set a key-value pair in the database or selected tree
     pub fn set_key(&self, key: &str, value: &str) -> Result<()> {
-        match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                tree.insert(key.as_bytes(), value.as_bytes())?;
-                tree.flush()?;
-            }
-            None => {
-                self.db.insert(key.as_bytes(), value.as_bytes())?;
-                self.db.flush()?;
-            }
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            tree.insert(key.as_bytes(), value.as_bytes())?;
+            tree.flush()?;
+        } else {
+            self.db.insert(key.as_bytes(), value.as_bytes())?;
+            self.db.flush()?;
         }
         Ok(())
     }
 
     /// Delete a key from the database or selected tree
     pub fn delete_key(&self, key: &str) -> Result<bool> {
-        let existed = match &self.selected_tree {
-            Some(tree_name) => {
-                let tree = self.get_tree(tree_name)?;
-                let existed = tree.remove(key.as_bytes())?.is_some();
-                tree.flush()?;
-                existed
-            }
-            None => {
-                let existed = self.db.remove(key.as_bytes())?.is_some();
-                self.db.flush()?;
-                existed
-            }
+        let existed = if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            let existed = tree.remove(key.as_bytes())?.is_some();
+            tree.flush()?;
+            existed
+        } else {
+            let existed = self.db.remove(key.as_bytes())?.is_some();
+            self.db.flush()?;
+            existed
         };
         Ok(existed)
     }
 
     /// Check if the database is writable
+    #[must_use]
     pub fn is_writable(&self) -> bool {
         // Try a test operation to check if the database is writable
-        let test_result = match &self.selected_tree {
-            Some(tree_name) => {
-                if let Ok(tree) = self.get_tree(tree_name) {
-                    match tree.insert(b"__sledoview_test__", b"test") {
-                        Ok(_) => {
-                            let _ = tree.remove(b"__sledoview_test__");
-                            let _ = tree.flush();
-                            true
-                        }
-                        Err(_) => false,
+        if let Some(tree_name) = &self.selected_tree {
+            if let Ok(tree) = self.get_tree(tree_name) {
+                match tree.insert(b"__sledoview_test__", b"test") {
+                    Ok(_) => {
+                        let _ = tree.remove(b"__sledoview_test__");
+                        let _ = tree.flush();
+                        true
                     }
-                } else {
-                    false
+                    Err(_) => false,
                 }
+            } else {
+                false
             }
-            None => match self.db.insert(b"__sledoview_test__", b"test") {
+        } else {
+            match self.db.insert(b"__sledoview_test__", b"test") {
                 Ok(_) => {
                     let _ = self.db.remove(b"__sledoview_test__");
                     let _ = self.db.flush();
                     true
                 }
                 Err(_) => false,
-            },
-        };
-        test_result
+            }
+        }
     }
 
     /// List all tree names, optionally filtered by pattern
-    pub fn list_trees(&self, pattern: &str, is_regex: bool) -> Result<Vec<String>> {
+    pub fn list_trees(&self, pattern: &str, is_regex: bool) -> Result<Vec<String>, SledoViewError> {
+        let regex = create_regex(pattern, is_regex)?;
         let mut tree_names = Vec::new();
 
         // Get all tree names from the database
@@ -436,21 +310,7 @@ impl SledViewer {
                 continue;
             }
 
-            let matches = if is_regex {
-                let regex = Regex::new(pattern).map_err(|_| SledoViewError::InvalidRegex {
-                    pattern: pattern.to_string(),
-                })?;
-                regex.is_match(&tree_name)
-            } else {
-                let regex_pattern = glob_to_regex(pattern);
-                let regex =
-                    Regex::new(&regex_pattern).map_err(|_| SledoViewError::InvalidRegex {
-                        pattern: pattern.to_string(),
-                    })?;
-                regex.is_match(&tree_name)
-            };
-
-            if matches {
+            if regex.is_match(&tree_name) {
                 tree_names.push(tree_name);
             }
         }
@@ -468,6 +328,7 @@ impl SledViewer {
     }
 
     /// Unselect the current tree
+    #[allow(clippy::unnecessary_wraps)] // avoid breaking public API
     pub fn unselect_tree(&mut self) -> Result<bool> {
         let was_selected = self.selected_tree.is_some();
         self.selected_tree = None;
@@ -475,6 +336,7 @@ impl SledViewer {
     }
 
     /// Get the currently selected tree name
+    #[must_use]
     pub fn get_selected_tree(&self) -> Option<&String> {
         self.selected_tree.as_ref()
     }
@@ -483,7 +345,7 @@ impl SledViewer {
     fn get_tree(&self, name: &str) -> Result<Tree> {
         self.db.open_tree(name.as_bytes()).map_err(|e| {
             SledoViewError::TreeOperation {
-                message: format!("Failed to open tree '{}': {}", name, e),
+                message: format!("Failed to open tree '{name}': {e}"),
             }
             .into()
         })
@@ -508,14 +370,15 @@ pub struct KeyValuePair {
 /// Format raw key bytes for display.
 ///
 /// - Valid UTF-8: returned as the decoded string.
-/// - Binary / invalid UTF-8: displayed as uppercase hex.  
+/// - Binary / invalid UTF-8: displayed as uppercase hex.
 ///   If the hex representation exceeds 32 characters it is shortened to
 ///   `XXXXXXXX....XXXXXXXX` (first 8 hex digits, four dots, last 8 hex digits).
+#[must_use]
 pub fn format_key_bytes(bytes: &[u8]) -> String {
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
     }
-    let hex: String = bytes.iter().map(|b| format!("{:02X}", b)).collect();
+    let hex: String = bytes.iter().map(|b| format!("{b:02X}")).collect();
     if hex.len() > 32 {
         format!("{}....{}", &hex[..8], &hex[hex.len() - 8..])
     } else {
@@ -525,11 +388,12 @@ pub fn format_key_bytes(bytes: &[u8]) -> String {
 
 /// Like [`format_key_bytes`] but never truncates — always returns the full
 /// UTF-8 string or the complete uppercase hex representation.
+#[must_use]
 pub fn format_key_bytes_full(bytes: &[u8]) -> String {
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
     }
-    bytes.iter().map(|b| format!("{:02X}", b)).collect()
+    bytes.iter().map(|b| format!("{b:02X}")).collect()
 }
 
 /// Returns `true` when a sled error indicates the database lock is held by
@@ -580,6 +444,20 @@ fn glob_to_regex(pattern: &str) -> String {
 
     regex.push('$');
     regex
+}
+
+fn create_regex(pattern: &str, is_regex: bool) -> Result<Regex, SledoViewError> {
+    if is_regex {
+        Regex::new(pattern).map_err(|_| SledoViewError::InvalidRegex {
+            pattern: pattern.to_string(),
+        })
+    } else {
+        // Convert glob pattern to regex
+        let regex_pattern = glob_to_regex(pattern);
+        Regex::new(&regex_pattern).map_err(|_| SledoViewError::InvalidRegex {
+            pattern: pattern.to_string(),
+        })
+    }
 }
 
 #[cfg(test)]

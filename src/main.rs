@@ -73,8 +73,7 @@ fn startup_error_and_exit(err: anyhow::Error) -> ! {
     // Check for the DatabaseLocked variant specifically.
     let is_locked = err
         .downcast_ref::<SledoViewError>()
-        .map(|e| matches!(e, SledoViewError::DatabaseLocked { .. }))
-        .unwrap_or(false);
+        .is_some_and(|e| matches!(e, SledoViewError::DatabaseLocked { .. }));
 
     if is_locked {
         eprintln!(
@@ -100,19 +99,19 @@ fn startup_error_and_exit(err: anyhow::Error) -> ! {
 fn create_test_database() -> Result<()> {
     println!("Creating test database...");
     let db = sled::open("test.db")?;
-    
+
     db.insert("user_1", "Alice Smith")?;
     db.insert("user_2", "Bob Johnson")?;
     db.insert("config_timeout", "30")?;
     db.insert("config_debug", "true")?;
     db.insert("data_large", "This is a longer text value that should be truncated in the preview display to demonstrate the truncation feature")?;
     db.insert("empty_key", "")?;
-    
+
     // Add some binary data
     db.insert("binary_data", &[0u8, 1u8, 2u8, 255u8])?;
-    
+
     db.flush()?;
     println!("✓ Test database 'test.db' created successfully!");
-    println!("You can now run: {} {}", "cargo run test.db".bright_yellow(), "".bright_green());
+    println!("You can now run: {}", "cargo run test.db".bright_yellow());
     Ok(())
 }
