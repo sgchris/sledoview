@@ -1,4 +1,4 @@
-use crate::db::{KeyInfo, SledViewer};
+use crate::db::{format_key_bytes, KeyInfo, SledViewer};
 use anyhow::Result;
 use colored::*;
 
@@ -91,6 +91,8 @@ pub enum Command {
     Unselect,
     Help,
     Exit,
+    /// A known command was typed but with wrong/missing arguments.
+    UsageError { message: String, usage: String },
 }
 
 impl Command {
@@ -104,7 +106,7 @@ impl Command {
 
         match args[0].to_lowercase().as_str() {
             "count" => Some(Command::Count),
-            "list" => {
+            "list" | "ls" => {
                 if args.len() == 1 {
                     Some(Command::List {
                         pattern: "*".to_string(),
@@ -121,7 +123,10 @@ impl Command {
                         is_regex: true,
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "Invalid arguments for 'list'.".to_string(),
+                        usage: "list [pattern]  |  list regex <pattern>".to_string(),
+                    })
                 }
             }
             "get" => {
@@ -130,7 +135,10 @@ impl Command {
                         key: args[1].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'get' requires a key argument.".to_string(),
+                        usage: "get <key>".to_string(),
+                    })
                 }
             }
             "set" => {
@@ -140,7 +148,10 @@ impl Command {
                         value: args[2].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'set' requires a key and a value.".to_string(),
+                        usage: "set <key> <value>".to_string(),
+                    })
                 }
             }
             "delete" | "del" => {
@@ -149,12 +160,18 @@ impl Command {
                         key: args[1].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'delete' requires a key argument.".to_string(),
+                        usage: "delete <key>".to_string(),
+                    })
                 }
             }
             "search" => {
                 if args.len() == 1 {
-                    None
+                    Some(Command::UsageError {
+                        message: "'search' requires a pattern argument.".to_string(),
+                        usage: "search <pattern>  |  search regex <pattern>".to_string(),
+                    })
                 } else if args.len() == 2 {
                     Some(Command::Search {
                         pattern: args[1].clone(),
@@ -166,7 +183,10 @@ impl Command {
                         is_regex: true,
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "Invalid arguments for 'search'.".to_string(),
+                        usage: "search <pattern>  |  search regex <pattern>".to_string(),
+                    })
                 }
             }
             "trees" => {
@@ -186,7 +206,10 @@ impl Command {
                         is_regex: true,
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "Invalid arguments for 'trees'.".to_string(),
+                        usage: "trees [pattern]  |  trees regex <pattern>".to_string(),
+                    })
                 }
             }
             "select" => {
@@ -195,7 +218,10 @@ impl Command {
                         tree: args[1].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'select' requires a tree name.".to_string(),
+                        usage: "select <tree>".to_string(),
+                    })
                 }
             }
             "unselect" => Some(Command::Unselect),
@@ -224,6 +250,12 @@ impl Command {
         format!("{preview}...").bright_green().to_string()
     }
 
+    /// Returns `true` for `UsageError` variants, so callers can skip adding
+    /// them to command history.
+    pub fn is_usage_error(&self) -> bool {
+        matches!(self, Command::UsageError { .. })
+    }
+
     pub fn execute(&self, viewer: &mut SledViewer) -> Result<()> {
         match self {
             Command::Count => {
@@ -235,7 +267,7 @@ impl Command {
                 );
             }
             Command::List { pattern, is_regex } => {
-                let keys = viewer.list_keys(pattern, *is_regex)?;
+                let keys = viewer.list_keys_raw(pattern, *is_regex)?;
                 if keys.is_empty() {
                     println!("{}", "No keys found matching the pattern.".yellow());
                 } else {
@@ -253,15 +285,16 @@ impl Command {
                         "keys:".bright_blue()
                     );
 
-                    for (i, key) in display_keys.iter().enumerate() {
+                    for (i, key_bytes) in display_keys.iter().enumerate() {
+                        let key_display = format_key_bytes(key_bytes);
                         // Get value preview for each key
-                        match viewer.get_key(key) {
+                        match viewer.get_key_bytes(key_bytes) {
                             Ok(info) => {
                                 let preview = Self::format_value_preview(&info);
                                 println!(
                                     "  {}: {} = {}",
                                     (i + 1).to_string().bright_black(),
-                                    key.bright_white(),
+                                    key_display.bright_white(),
                                     preview
                                 );
                             }
@@ -270,7 +303,7 @@ impl Command {
                                 println!(
                                     "  {}: {} = {}",
                                     (i + 1).to_string().bright_black(),
-                                    key.bright_white(),
+                                    key_display.bright_white(),
                                     "(error reading value)".red()
                                 );
                             }
@@ -286,14 +319,29 @@ impl Command {
                     }
                 }
             }
-            Command::Get { key } => match viewer.get_key(key) {
-                Ok(info) => {
-                    print_key_info(&info);
+            Command::Get { key } => {
+                // Try exact string key first; if not found and the argument
+                // looks like a hex string, fall back to matching binary keys
+                // by their trailing hex digits (e.g. `get 61F8` finds
+                // the key whose full hex ends with "61F8").
+                let key_result = viewer.get_key(key).or_else(|original_err| {
+                    let looks_like_hex =
+                        !key.is_empty() && key.chars().all(|c| c.is_ascii_hexdigit());
+                    if looks_like_hex {
+                        viewer
+                            .find_key_by_hex_suffix(key)
+                            .and_then(|opt| opt.ok_or(original_err))
+                    } else {
+                        Err(original_err)
+                    }
+                });
+                match key_result {
+                    Ok(info) => print_key_info(&info),
+                    Err(e) => {
+                        println!("{} {}", "Error:".bright_red().bold(), e.to_string().red());
+                    }
                 }
-                Err(e) => {
-                    println!("{} {}", "Error:".bright_red().bold(), e.to_string().red());
-                }
-            },
+            }
             Command::Set { key, value } => {
                 // Validate the key first
                 if let Err(error_msg) = validate_key(key) {
@@ -365,19 +413,32 @@ impl Command {
                 if results.is_empty() {
                     println!("{}", "No values found matching the pattern.".yellow());
                 } else {
+                    let total_count = results.len();
+                    let display_results = if total_count > 50 {
+                        &results[0..50]
+                    } else {
+                        &results[..]
+                    };
                     println!(
                         "{} {} {}",
                         "Found".bright_blue(),
-                        results.len().to_string().bright_yellow().bold(),
+                        total_count.to_string().bright_yellow().bold(),
                         "matches:".bright_blue()
                     );
-                    for (i, pair) in results.iter().enumerate() {
+                    for (i, pair) in display_results.iter().enumerate() {
                         println!(
                             "  {}: {} {} {}",
                             (i + 1).to_string().bright_black(),
                             pair.key.bright_cyan().bold(),
                             "=>".bright_black(),
                             truncate_value(&pair.value, 100).bright_white()
+                        );
+                    }
+                    if total_count > 50 {
+                        println!(
+                            "{}",
+                            format!("... and {} more matches (showing first 50)", total_count - 50)
+                                .bright_yellow()
                         );
                     }
                 }
@@ -454,6 +515,10 @@ impl Command {
             }
             Command::Exit => {
                 println!("{}", "Goodbye!".bright_green());
+            }
+            Command::UsageError { message, usage } => {
+                println!("{} {}", "Error:".bright_red().bold(), message.red());
+                println!("  {} {}", "Usage:".bright_blue(), usage.bright_white());
             }
         }
         Ok(())
@@ -726,10 +791,10 @@ mod tests {
 
         // Test incomplete set command
         let cmd = Command::parse("set key");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("set");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -745,7 +810,7 @@ mod tests {
 
         // Test incomplete delete command
         let cmd = Command::parse("delete");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -835,16 +900,16 @@ mod tests {
         assert!(cmd.is_none());
 
         let cmd = Command::parse("list too many args here");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("get");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("set key");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("delete");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -872,7 +937,7 @@ mod tests {
 
         // Test trees command with too many args
         let cmd = Command::parse("trees regex pattern extra");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -885,7 +950,7 @@ mod tests {
 
         // Test incomplete select command
         let cmd = Command::parse("select");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]

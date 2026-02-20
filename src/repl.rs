@@ -3,7 +3,7 @@ use crate::db::SledViewer;
 use anyhow::Result;
 use colored::*;
 use rustyline::error::ReadlineError;
-use rustyline::history::FileHistory;
+use rustyline::history::MemHistory;
 use rustyline::{Context, Editor};
 use rustyline_derive::{Helper, Highlighter, Hinter, Validator};
 
@@ -50,7 +50,7 @@ impl rustyline::completion::Completer for SledCompleter {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || (command == "list" && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // We're completing a key - find the current word being typed
@@ -112,7 +112,7 @@ impl rustyline::completion::Completer for SledCompleter {
 
         // Fallback to command completion
         let commands = vec![
-            "count", "list", "get", "set", "delete", "del", "search", "trees", "select",
+            "count", "list", "ls", "get", "set", "delete", "del", "search", "trees", "select",
             "unselect", "help", "exit", "quit",
         ];
         let mut candidates = Vec::new();
@@ -143,7 +143,7 @@ impl rustyline::completion::Completer for SledCompleter {
 }
 
 pub struct Repl {
-    editor: Editor<SledCompleter, FileHistory>,
+    editor: Editor<SledCompleter, MemHistory>,
     viewer: SledViewer,
     keys: Vec<String>,
     trees: Vec<String>,
@@ -153,7 +153,8 @@ impl Repl {
     #[must_use]
     pub fn new(viewer: SledViewer) -> Self {
         let mut editor =
-            Editor::<SledCompleter, FileHistory>::new().expect("Failed to create readline editor");
+            Editor::<SledCompleter, MemHistory>::with_history(rustyline::Config::default(), MemHistory::new())
+                .expect("Failed to create readline editor");
         let completer = SledCompleter::new();
         editor.set_helper(Some(completer));
 
@@ -204,7 +205,7 @@ impl Repl {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || (command == "list" && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // Find the current word being typed
@@ -267,6 +268,7 @@ impl Repl {
                 || command == "delete"
                 || command == "del"
                 || command == "list"
+                || command == "ls"
                 || command == "search"
                 || (command == "set" && parts.len() == 2)
             {
@@ -320,11 +322,6 @@ impl Repl {
                         continue;
                     }
 
-                    // Add to history
-                    if let Err(e) = self.editor.add_history_entry(line) {
-                        eprintln!("Warning: Failed to add to history: {e}");
-                    }
-
                     // Check for tab completion command
                     if line == "tab" || line == "\\t" {
                         println!("{}", "Tab completion: Type your partial command (e.g., 'get user_') and I'll complete it.".bright_blue());
@@ -359,6 +356,8 @@ impl Repl {
                                             "Error:".bright_red().bold(),
                                             e.to_string().red()
                                         );
+                                    } else if !command.is_usage_error() {
+                                        let _ = self.editor.add_history_entry(&completed);
                                     }
                                     // Reload keys and trees after any command in case database changed
                                     self.load_keys();
@@ -400,6 +399,8 @@ impl Repl {
                                     "Error:".bright_red().bold(),
                                     e.to_string().red()
                                 );
+                            } else if !command.is_usage_error() {
+                                let _ = self.editor.add_history_entry(line);
                             }
                             // Reload keys and trees after any command in case database changed
                             self.load_keys();
