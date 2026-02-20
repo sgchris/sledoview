@@ -93,6 +93,8 @@ pub enum Command {
     Unselect,
     Help,
     Exit,
+    /// A known command was typed but with wrong/missing arguments.
+    UsageError { message: String, usage: String },
 }
 
 impl Command {
@@ -105,7 +107,7 @@ impl Command {
 
         match args[0].to_lowercase().as_str() {
             "count" => Some(Command::Count),
-            "list" => {
+            "list" | "ls" => {
                 if args.len() == 1 {
                     Some(Command::List {
                         pattern: "*".to_string(),
@@ -122,7 +124,10 @@ impl Command {
                         is_regex: true,
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "Invalid arguments for 'list'.".to_string(),
+                        usage: "list [pattern]  |  list regex <pattern>".to_string(),
+                    })
                 }
             }
             "get" => {
@@ -131,7 +136,10 @@ impl Command {
                         key: args[1].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'get' requires a key argument.".to_string(),
+                        usage: "get <key>".to_string(),
+                    })
                 }
             }
             "set" => {
@@ -141,7 +149,10 @@ impl Command {
                         value: args[2].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'set' requires a key and a value.".to_string(),
+                        usage: "set <key> <value>".to_string(),
+                    })
                 }
             }
             "delete" | "del" => {
@@ -150,12 +161,18 @@ impl Command {
                         key: args[1].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'delete' requires a key argument.".to_string(),
+                        usage: "delete <key>".to_string(),
+                    })
                 }
             }
             "search" => {
                 if args.len() == 1 {
-                    None
+                    Some(Command::UsageError {
+                        message: "'search' requires a pattern argument.".to_string(),
+                        usage: "search <pattern>  |  search regex <pattern>".to_string(),
+                    })
                 } else if args.len() == 2 {
                     Some(Command::Search {
                         pattern: args[1].clone(),
@@ -167,7 +184,10 @@ impl Command {
                         is_regex: true,
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "Invalid arguments for 'search'.".to_string(),
+                        usage: "search <pattern>  |  search regex <pattern>".to_string(),
+                    })
                 }
             }
             "trees" => {
@@ -187,7 +207,10 @@ impl Command {
                         is_regex: true,
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "Invalid arguments for 'trees'.".to_string(),
+                        usage: "trees [pattern]  |  trees regex <pattern>".to_string(),
+                    })
                 }
             }
             "select" => {
@@ -196,7 +219,10 @@ impl Command {
                         tree: args[1].clone(),
                     })
                 } else {
-                    None
+                    Some(Command::UsageError {
+                        message: "'select' requires a tree name.".to_string(),
+                        usage: "select <tree>".to_string(),
+                    })
                 }
             }
             "unselect" => Some(Command::Unselect),
@@ -223,6 +249,12 @@ impl Command {
         // For longer values, show a preview with truncation
         let preview = info.value.chars().take(47).collect::<String>();
         format!("{}...", preview).bright_green().to_string()
+    }
+
+    /// Returns `true` for `UsageError` variants, so callers can skip adding
+    /// them to command history.
+    pub fn is_usage_error(&self) -> bool {
+        matches!(self, Command::UsageError { .. })
     }
 
     pub fn execute(&self, viewer: &mut SledViewer) -> Result<()> {
@@ -493,6 +525,10 @@ impl Command {
             }
             Command::Exit => {
                 println!("{}", "Goodbye!".bright_green());
+            }
+            Command::UsageError { message, usage } => {
+                println!("{} {}", "Error:".bright_red().bold(), message.red());
+                println!("  {} {}", "Usage:".bright_blue(), usage.bright_white());
             }
         }
         Ok(())
@@ -765,10 +801,10 @@ mod tests {
 
         // Test incomplete set command
         let cmd = Command::parse("set key");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("set");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -784,7 +820,7 @@ mod tests {
 
         // Test incomplete delete command
         let cmd = Command::parse("delete");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -874,16 +910,16 @@ mod tests {
         assert!(cmd.is_none());
 
         let cmd = Command::parse("list too many args here");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("get");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("set key");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
 
         let cmd = Command::parse("delete");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -911,7 +947,7 @@ mod tests {
 
         // Test trees command with too many args
         let cmd = Command::parse("trees regex pattern extra");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -924,7 +960,7 @@ mod tests {
 
         // Test incomplete select command
         let cmd = Command::parse("select");
-        assert!(cmd.is_none());
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]

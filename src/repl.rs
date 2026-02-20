@@ -50,7 +50,7 @@ impl rustyline::completion::Completer for SledCompleter {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || (command == "list" && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // We're completing a key - find the current word being typed
@@ -112,7 +112,7 @@ impl rustyline::completion::Completer for SledCompleter {
 
         // Fallback to command completion
         let commands = vec![
-            "count", "list", "get", "set", "delete", "del", "search", "trees", "select",
+            "count", "list", "ls", "get", "set", "delete", "del", "search", "trees", "select",
             "unselect", "help", "exit", "quit",
         ];
         let mut candidates = Vec::new();
@@ -208,7 +208,7 @@ impl Repl {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || (command == "list" && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // Find the current word being typed
@@ -271,6 +271,7 @@ impl Repl {
                 || command == "delete"
                 || command == "del"
                 || command == "list"
+                || command == "ls"
                 || command == "search"
                 || (command == "set" && parts.len() == 2)
             {
@@ -357,7 +358,7 @@ impl Repl {
                                             "Error:".bright_red().bold(),
                                             e.to_string().red()
                                         );
-                                    } else {
+                                    } else if !command.is_usage_error() {
                                         let _ = self.editor.add_history_entry(&completed);
                                     }
                                     // Reload keys and trees after any command in case database changed
@@ -400,7 +401,7 @@ impl Repl {
                                     "Error:".bright_red().bold(),
                                     e.to_string().red()
                                 );
-                            } else {
+                            } else if !command.is_usage_error() {
                                 let _ = self.editor.add_history_entry(line);
                             }
                             // Reload keys and trees after any command in case database changed
