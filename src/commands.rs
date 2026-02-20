@@ -9,7 +9,7 @@ fn parse_quoted_args(input: &str) -> Vec<String> {
     let mut in_quotes = false;
     let mut escape_next = false;
 
-    for ch in input.chars().peekable() {
+    for ch in input.chars() {
         if escape_next {
             current_arg.push(ch);
             escape_next = false;
