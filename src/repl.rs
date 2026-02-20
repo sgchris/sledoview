@@ -50,7 +50,9 @@ impl rustyline::completion::Completer for SledCompleter {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls")
+                    && parts.len() >= 2
+                    && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // We're completing a key - find the current word being typed
@@ -152,9 +154,11 @@ pub struct Repl {
 impl Repl {
     #[must_use]
     pub fn new(viewer: SledViewer) -> Self {
-        let mut editor =
-            Editor::<SledCompleter, MemHistory>::with_history(rustyline::Config::default(), MemHistory::new())
-                .expect("Failed to create readline editor");
+        let mut editor = Editor::<SledCompleter, MemHistory>::with_history(
+            rustyline::Config::default(),
+            MemHistory::new(),
+        )
+        .expect("Failed to create readline editor");
         let completer = SledCompleter::new();
         editor.set_helper(Some(completer));
 
@@ -205,7 +209,9 @@ impl Repl {
                 || command == "delete"
                 || command == "del"
                 || (command == "set" && parts.len() == 2)
-                || ((command == "list" || command == "ls") && parts.len() >= 2 && parts[1] != "regex")
+                || ((command == "list" || command == "ls")
+                    && parts.len() >= 2
+                    && parts[1] != "regex")
                 || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
             {
                 // Find the current word being typed

@@ -81,18 +81,39 @@ fn validate_key(key: &str) -> Result<(), String> {
 #[derive(Debug)]
 pub enum Command {
     Count,
-    List { pattern: String, is_regex: bool },
-    Get { key: String },
-    Set { key: String, value: String },
-    Delete { key: String },
-    Search { pattern: String, is_regex: bool },
-    Trees { pattern: String, is_regex: bool },
-    Select { tree: String },
+    List {
+        pattern: String,
+        is_regex: bool,
+    },
+    Get {
+        key: String,
+    },
+    Set {
+        key: String,
+        value: String,
+    },
+    Delete {
+        key: String,
+    },
+    Search {
+        pattern: String,
+        is_regex: bool,
+    },
+    Trees {
+        pattern: String,
+        is_regex: bool,
+    },
+    Select {
+        tree: String,
+    },
     Unselect,
     Help,
     Exit,
     /// A known command was typed but with wrong/missing arguments.
-    UsageError { message: String, usage: String },
+    UsageError {
+        message: String,
+        usage: String,
+    },
 }
 
 impl Command {
@@ -437,8 +458,11 @@ impl Command {
                     if total_count > 50 {
                         println!(
                             "{}",
-                            format!("... and {} more matches (showing first 50)", total_count - 50)
-                                .bright_yellow()
+                            format!(
+                                "... and {} more matches (showing first 50)",
+                                total_count - 50
+                            )
+                            .bright_yellow()
                         );
                     }
                 }

@@ -113,9 +113,6 @@ fn create_test_database() -> Result<()> {
 
     db.flush()?;
     println!("✓ Test database 'test.db' created successfully!");
-    println!(
-        "You can now run: {}",
-        "cargo run test.db".bright_yellow()
-    );
+    println!("You can now run: {}", "cargo run test.db".bright_yellow());
     Ok(())
 }
