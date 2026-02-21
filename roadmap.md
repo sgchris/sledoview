@@ -7,13 +7,6 @@ This roadmap outlines the planned features and enhancements for SledoView. Our g
 - **Pluggable Deserializers**: Add support for interpreting values as JSON, Bincode, MessagePack, or Protobuf. 
   *Example: `set-format bincode` or `set-format json` to automatically deserialize bytes into readable text.*
 - **Pretty Printing**: Automatically format and syntax-highlight JSON or structured data directly in the terminal.
-- **Hex/Binary View**: A dedicated hex viewer mode for debugging raw byte structures when data isn't standard text.
-
-## 📡 Live Monitoring & Debugging
-*Turn SledoView into a real-time debugging companion for your active Rust applications.*
-- **Live Watch**: Implement a `watch <prefix>` command using Sled's native `watch_prefix` API to stream database changes to the console in real-time.
-  *Example: `watch user_` will print to the console every time a key starting with `user_` is added, updated, or deleted by another thread.*
-- **Read-Only Mode**: Add a `--read-only` CLI flag to safely inspect production databases without risking accidental modifications.
 
 ## 🌐 Embedded Web UI
 *The speed of a CLI with the convenience of a GUI, all in one binary.*
@@ -30,8 +23,6 @@ This roadmap outlines the planned features and enhancements for SledoView. Our g
 
 ## 🔍 Advanced Querying & Batching
 *Go beyond simple key matching and manage data at scale.*
-- **Value Searching**: Search inside the values, not just the keys.
-  *Example: `search --value "*error*"` to find all keys where the value contains the word "error".*
 - **JSON Path Queries**: If the data format is set to JSON, allow querying by specific fields.
   *Example: `find .user.age > 18`.*
 - **Batch Operations**: Commands like `delete-all <pattern>` to remove multiple keys at once without writing a custom script.
