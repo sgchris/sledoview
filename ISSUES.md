@@ -20,19 +20,19 @@ Several display paths truncate strings using byte indexing after checking `len()
 
 Recommended change: replace direct slicing with character-boundary-safe truncation helpers.
 
-## [ ] 4. REPL completion eagerly scans the full database too often
+## [x] 4. REPL completion eagerly scans the full database too often
 
 The REPL loads all keys and trees at startup and reloads them after many commands. For large databases this becomes an avoidable full scan and memory cost on the hot path.
 
 Recommended change: make completion lazy, prefix-driven, or capped to a bounded number of suggestions.
 
-## [ ] 5. `list` uses an N+1 read pattern
+## [x] 5. `list` uses an N+1 read pattern
 
 The `list` command first loads matching keys and then re-reads each key individually to build the value preview. This doubles the database work and degrades performance on larger datasets.
 
 Recommended change: return key and preview data in a single database pass.
 
-## [ ] 6. Validation and open flow are duplicated
+## [x] 6. Validation and open flow are duplicated
 
 The application opens the database during validation to test lock state, then opens it again for normal use. Lock detection logic is also duplicated in more than one module. This adds extra I/O, creates race windows, and complicates maintenance.
 

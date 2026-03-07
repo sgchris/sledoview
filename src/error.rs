@@ -23,9 +23,6 @@ pub enum SledoViewError {
     #[error("Key not found: {key}")]
     KeyNotFound { key: String },
 
-    #[error("Database operation failed: {message}")]
-    DatabaseOperation { message: String },
-
     #[error("Tree operation failed: {message}")]
     TreeOperation { message: String },
 

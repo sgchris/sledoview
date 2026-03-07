@@ -1,39 +1,9 @@
+use crate::db::SledViewer;
 use crate::error::SledoViewError;
 use anyhow::Result;
 use colored::*;
 use std::fs;
 use std::path::Path;
-
-/// Returns `true` when a sled error looks like a lock/contention error.
-///
-/// Sled serialises database access with a lock file. When another process
-/// already holds that lock the underlying OS error varies by platform:
-/// - POSIX: `EWOULDBLOCK` / `EAGAIN` → `ErrorKind::WouldBlock`
-/// - Windows: `ERROR_LOCK_VIOLATION` (33) or `ERROR_SHARING_VIOLATION` (32)
-///   → `ErrorKind::Other`
-/// - Fallback: the error message contains the word "lock".
-fn is_lock_error(err: &sled::Error) -> bool {
-    if let sled::Error::Io(io_err) = err {
-        match io_err.kind() {
-            std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::WouldBlock => return true,
-            std::io::ErrorKind::Other => {
-                // Windows ERROR_LOCK_VIOLATION = 33, ERROR_SHARING_VIOLATION = 32
-                if let Some(os_code) = io_err.raw_os_error() {
-                    if os_code == 32 || os_code == 33 {
-                        return true;
-                    }
-                }
-            }
-            _ => {}
-        }
-        // Fallback: inspect the message text
-        if io_err.to_string().to_lowercase().contains("lock") {
-            return true;
-        }
-    }
-    // Also check the top-level sled error message
-    err.to_string().to_lowercase().contains("lock")
-}
 
 pub struct DatabaseValidator<'a> {
     path: &'a Path,
@@ -52,7 +22,6 @@ impl<'a> DatabaseValidator<'a> {
         self.check_file_readable()?;
         self.check_is_directory()?;
         self.check_sled_structure()?;
-        self.check_not_locked()?;
 
         println!(
             "{} {}",
@@ -60,6 +29,11 @@ impl<'a> DatabaseValidator<'a> {
             "Database validation passed".green()
         );
         Ok(())
+    }
+
+    pub fn open(&self) -> Result<SledViewer> {
+        self.validate()?;
+        SledViewer::new(self.path)
     }
 
     fn check_file_exists(&self) -> Result<()> {
@@ -136,20 +110,5 @@ impl<'a> DatabaseValidator<'a> {
         }
 
         Ok(())
-    }
-
-    fn check_not_locked(&self) -> Result<()> {
-        // Try to open the database to check if it's locked
-        match sled::open(self.path) {
-            Ok(_) => Ok(()),
-            Err(ref e) if is_lock_error(e) => Err(SledoViewError::DatabaseLocked {
-                path: self.path.display().to_string(),
-            }
-            .into()),
-            Err(e) => Err(SledoViewError::DatabaseOperation {
-                message: format!("Failed to open database: {e}"),
-            }
-            .into()),
-        }
     }
 }

@@ -252,22 +252,22 @@ impl Command {
         }
     }
 
-    fn format_value_preview(info: &KeyInfo) -> String {
-        if !info.is_utf8 {
+    fn format_value_preview(value: &str, is_utf8: bool) -> String {
+        if !is_utf8 {
             return "(binary data)".red().to_string();
         }
 
-        if info.value.is_empty() {
+        if value.is_empty() {
             return "(empty)".bright_black().to_string();
         }
 
         // For short values, show them fully
-        if info.value.len() <= 50 {
-            return info.value.bright_green().to_string();
+        if value.len() <= 50 {
+            return value.bright_green().to_string();
         }
 
         // For longer values, show a preview with truncation
-        let preview = info.value.chars().take(47).collect::<String>();
+        let preview = value.chars().take(47).collect::<String>();
         format!("{preview}...").bright_green().to_string()
     }
 
@@ -289,16 +289,11 @@ impl Command {
                 );
             }
             Command::List { pattern, is_regex } => {
-                let keys = viewer.list_keys_raw(pattern, *is_regex)?;
-                if keys.is_empty() {
+                let result = viewer.list_key_summaries(pattern, *is_regex, 50)?;
+                if result.total_count == 0 {
                     println!("{}", "No keys found matching the pattern.".yellow());
                 } else {
-                    let total_count = keys.len();
-                    let display_keys = if total_count > 50 {
-                        &keys[0..50]
-                    } else {
-                        &keys
-                    };
+                    let total_count = result.total_count;
 
                     println!(
                         "{} {} {}",
@@ -307,29 +302,15 @@ impl Command {
                         "keys:".bright_blue()
                     );
 
-                    for (i, key_bytes) in display_keys.iter().enumerate() {
-                        let key_display = format_key_bytes(key_bytes);
-                        // Get value preview for each key
-                        match viewer.get_key_bytes(key_bytes) {
-                            Ok(info) => {
-                                let preview = Self::format_value_preview(&info);
-                                println!(
-                                    "  {}: {} = {}",
-                                    (i + 1).to_string().bright_black(),
-                                    key_display.bright_white(),
-                                    preview
-                                );
-                            }
-                            Err(_) => {
-                                // Key might have been deleted, just show key name
-                                println!(
-                                    "  {}: {} = {}",
-                                    (i + 1).to_string().bright_black(),
-                                    key_display.bright_white(),
-                                    "(error reading value)".red()
-                                );
-                            }
-                        }
+                    for (i, item) in result.items.iter().enumerate() {
+                        let key_display = format_key_bytes(&item.key);
+                        let preview = Self::format_value_preview(&item.value, item.is_utf8);
+                        println!(
+                            "  {}: {} = {}",
+                            (i + 1).to_string().bright_black(),
+                            key_display.bright_white(),
+                            preview
+                        );
                     }
 
                     if total_count > 50 {

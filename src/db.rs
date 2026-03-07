@@ -37,6 +37,7 @@ impl SledViewer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn list_keys(&self, pattern: &str, is_regex: bool) -> Result<Vec<String>> {
         let mut keys = Vec::new();
         let regex = create_regex(pattern, is_regex)?;
@@ -64,35 +65,110 @@ impl SledViewer {
         Ok(keys)
     }
 
-    /// List raw key bytes, optionally filtered by pattern (glob or regex).
-    ///
-    /// Returns each key as its original `Vec<u8>`, which is required for keys
-    /// that are not valid UTF-8 (e.g. big-endian encoded `u64` timestamps).
-    pub fn list_keys_raw(&self, pattern: &str, is_regex: bool) -> Result<Vec<Vec<u8>>> {
-        let mut keys: Vec<Vec<u8>> = Vec::new();
+    pub fn list_key_summaries(
+        &self,
+        pattern: &str,
+        is_regex: bool,
+        limit: usize,
+    ) -> Result<KeyListResult> {
         let regex = create_regex(pattern, is_regex)?;
+        let mut total_count = 0;
+        let mut items = Vec::new();
+
+        let mut visit_entry = |key: &[u8], value: &[u8]| {
+            let key_str = String::from_utf8_lossy(key);
+            if regex.is_match(&key_str) {
+                total_count += 1;
+                insert_limited_key_list_item(
+                    &mut items,
+                    KeyListItem {
+                        key: key.to_vec(),
+                        value: String::from_utf8_lossy(value).to_string(),
+                        is_utf8: std::str::from_utf8(value).is_ok(),
+                    },
+                    limit,
+                );
+            }
+        };
 
         if let Some(tree_name) = &self.selected_tree {
             let tree = self.get_tree(tree_name)?;
             for result in &tree {
-                let (key, _) = result?;
-                let key_str = String::from_utf8_lossy(&key);
-                if regex.is_match(&key_str) {
-                    keys.push(key.to_vec());
-                }
+                let (key, value) = result?;
+                visit_entry(&key, &value);
             }
         } else {
             for result in self.db.iter() {
+                let (key, value) = result?;
+                visit_entry(&key, &value);
+            }
+        }
+
+        Ok(KeyListResult { total_count, items })
+    }
+
+    pub fn complete_keys(&self, prefix: &str, limit: usize) -> Result<Vec<String>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut matches = Vec::new();
+
+        if let Some(tree_name) = &self.selected_tree {
+            let tree = self.get_tree(tree_name)?;
+            if prefix.is_empty() {
+                for result in &tree {
+                    let (key, _) = result?;
+                    matches.push(String::from_utf8_lossy(&key).to_string());
+                    if matches.len() >= limit {
+                        break;
+                    }
+                }
+            } else {
+                for result in tree.scan_prefix(prefix.as_bytes()) {
+                    let (key, _) = result?;
+                    matches.push(String::from_utf8_lossy(&key).to_string());
+                    if matches.len() >= limit {
+                        break;
+                    }
+                }
+            }
+        } else if prefix.is_empty() {
+            for result in self.db.iter() {
                 let (key, _) = result?;
-                let key_str = String::from_utf8_lossy(&key);
-                if regex.is_match(&key_str) {
-                    keys.push(key.to_vec());
+                matches.push(String::from_utf8_lossy(&key).to_string());
+                if matches.len() >= limit {
+                    break;
+                }
+            }
+        } else {
+            for result in self.db.scan_prefix(prefix.as_bytes()) {
+                let (key, _) = result?;
+                matches.push(String::from_utf8_lossy(&key).to_string());
+                if matches.len() >= limit {
+                    break;
                 }
             }
         }
 
-        keys.sort();
-        Ok(keys)
+        matches.sort();
+        matches.dedup();
+        Ok(matches)
+    }
+
+    pub fn complete_trees(&self, prefix: &str, limit: usize) -> Result<Vec<String>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut tree_names = self.list_trees("*", false)?;
+        if !prefix.is_empty() {
+            tree_names.retain(|tree| tree.starts_with(prefix));
+        }
+        if tree_names.len() > limit {
+            tree_names.truncate(limit);
+        }
+        Ok(tree_names)
     }
 
     pub fn get_key(&self, key: &str) -> Result<KeyInfo> {
@@ -120,37 +196,6 @@ impl SledViewer {
                 key: key.to_string(),
             }
             .into())
-        }
-    }
-
-    /// Retrieve key info by raw bytes instead of a UTF-8 string.
-    ///
-    /// Required for keys that are stored as binary data (e.g. big-endian `u64`
-    /// timestamps).  The `KeyInfo.key` field is populated via [`format_key_bytes`].
-    pub fn get_key_bytes(&self, key_bytes: &[u8]) -> Result<KeyInfo> {
-        let value_opt = if let Some(tree_name) = &self.selected_tree {
-            let tree = self.get_tree(tree_name)?;
-            tree.get(key_bytes)?
-        } else {
-            self.db.get(key_bytes)?
-        };
-
-        match value_opt {
-            Some(value) => {
-                let is_utf8 = std::str::from_utf8(&value).is_ok();
-                let value_str = String::from_utf8_lossy(&value).to_string();
-                let size = value.len();
-                Ok(KeyInfo {
-                    key: format_key_bytes_full(key_bytes),
-                    value: value_str,
-                    size,
-                    is_utf8,
-                })
-            }
-            None => Err(SledoViewError::KeyNotFound {
-                key: format_key_bytes(key_bytes),
-            }
-            .into()),
         }
     }
 
@@ -353,6 +398,19 @@ pub struct KeyValuePair {
     pub value: String,
 }
 
+#[derive(Debug)]
+pub struct KeyListItem {
+    pub key: Vec<u8>,
+    pub value: String,
+    pub is_utf8: bool,
+}
+
+#[derive(Debug)]
+pub struct KeyListResult {
+    pub total_count: usize,
+    pub items: Vec<KeyListItem>,
+}
+
 /// Format raw key bytes for display.
 ///
 /// - Valid UTF-8: returned as the decoded string.
@@ -443,6 +501,24 @@ fn create_regex(pattern: &str, is_regex: bool) -> Result<Regex, SledoViewError> 
         Regex::new(&regex_pattern).map_err(|_| SledoViewError::InvalidRegex {
             pattern: pattern.to_string(),
         })
+    }
+}
+
+fn insert_limited_key_list_item(items: &mut Vec<KeyListItem>, item: KeyListItem, limit: usize) {
+    if limit == 0 {
+        return;
+    }
+
+    if items.len() < limit {
+        items.push(item);
+        items.sort_by(|left, right| left.key.cmp(&right.key));
+        return;
+    }
+
+    if items.last().is_some_and(|largest| item.key < largest.key) {
+        items.pop();
+        items.push(item);
+        items.sort_by(|left, right| left.key.cmp(&right.key));
     }
 }
 
@@ -640,6 +716,51 @@ mod tests {
         // Test no matches
         let trees = viewer.list_trees("nonexistent_*", false).unwrap();
         assert!(trees.is_empty());
+    }
+
+    #[test]
+    fn test_list_key_summaries_returns_total_and_sorted_items() {
+        let temp_dir = create_test_db();
+        let viewer = SledViewer::new(temp_dir.path()).unwrap();
+
+        let result = viewer.list_key_summaries("*key", false, 1).unwrap();
+
+        assert_eq!(result.total_count, 2);
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(format_key_bytes(&result.items[0].key), "another_key");
+    }
+
+    #[test]
+    fn test_complete_keys_uses_prefix_and_limit() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let viewer = SledViewer::new(temp_dir.path()).unwrap();
+
+        viewer.set_key("apple", "1").unwrap();
+        viewer.set_key("application", "2").unwrap();
+        viewer.set_key("apply", "3").unwrap();
+        viewer.set_key("banana", "4").unwrap();
+
+        let matches = viewer.complete_keys("app", 2).unwrap();
+
+        assert_eq!(matches, vec!["apple".to_string(), "application".to_string()]);
+    }
+
+    #[test]
+    fn test_complete_trees_uses_prefix_and_limit() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test_complete_trees");
+        {
+            let db = sled::open(&db_path).unwrap();
+            let _ = db.open_tree(b"app_config").unwrap();
+            let _ = db.open_tree(b"app_data").unwrap();
+            let _ = db.open_tree(b"archive").unwrap();
+            db.flush().unwrap();
+        }
+
+        let viewer = SledViewer::new(&db_path).unwrap();
+        let matches = viewer.complete_trees("app", 1).unwrap();
+
+        assert_eq!(matches, vec!["app_config".to_string()]);
     }
 
     #[test]

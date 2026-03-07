@@ -13,6 +13,16 @@ fn test_validator_valid_database() {
 }
 
 #[test]
+fn test_validator_open_valid_database() {
+    let temp_dir = common::create_test_db();
+    let validator = DatabaseValidator::new(temp_dir.path());
+
+    let viewer = validator.open().unwrap();
+
+    assert_eq!(viewer.count().unwrap(), 10);
+}
+
+#[test]
 fn test_validator_nonexistent_database() {
     let validator = DatabaseValidator::new(std::path::Path::new("/nonexistent/path"));
     assert!(validator.validate().is_err());

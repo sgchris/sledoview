@@ -6,27 +6,75 @@ use rustyline::error::ReadlineError;
 use rustyline::history::MemHistory;
 use rustyline::{Context, Editor};
 use rustyline_derive::{Helper, Highlighter, Hinter, Validator};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+const COMPLETION_LIMIT: usize = 100;
 
 #[derive(Helper, Highlighter, Hinter, Validator)]
 struct SledCompleter {
-    keys: Vec<String>,
-    trees: Vec<String>,
+    viewer: Rc<RefCell<SledViewer>>,
+    limit: usize,
 }
 
 impl SledCompleter {
-    fn new() -> Self {
-        Self {
-            keys: Vec::new(),
-            trees: Vec::new(),
+    fn new(viewer: Rc<RefCell<SledViewer>>, limit: usize) -> Self {
+        Self { viewer, limit }
+    }
+
+    fn find_completions(&self, line: &str) -> Vec<String> {
+        let trimmed = line.trim_end_matches(|ch| ch == ' ' || ch == '\t');
+        let ends_with_whitespace = trimmed.len() != line.len();
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+
+        let Some(command) = parts.first().map(|command| command.to_lowercase()) else {
+            return Self::command_completions(line);
+        };
+
+        if let Some(prefix) = key_completion_prefix(&command, &parts, ends_with_whitespace) {
+            return self
+                .viewer
+                .borrow()
+                .complete_keys(prefix, self.limit)
+                .unwrap_or_default();
         }
+
+        if let Some(prefix) = tree_completion_prefix(&command, &parts, ends_with_whitespace) {
+            return self
+                .viewer
+                .borrow()
+                .complete_trees(prefix, self.limit)
+                .unwrap_or_default();
+        }
+
+        if parts.len() <= 1 && !ends_with_whitespace {
+            return Self::command_completions(parts[0]);
+        }
+
+        Vec::new()
     }
 
-    fn update_keys(&mut self, keys: Vec<String>) {
-        self.keys = keys;
-    }
-
-    fn update_trees(&mut self, trees: Vec<String>) {
-        self.trees = trees;
+    fn command_completions(prefix: &str) -> Vec<String> {
+        [
+            "count",
+            "list",
+            "ls",
+            "get",
+            "set",
+            "delete",
+            "del",
+            "search",
+            "trees",
+            "select",
+            "unselect",
+            "help",
+            "exit",
+            "quit",
+        ]
+        .into_iter()
+        .filter(|command| command.starts_with(prefix))
+        .map(str::to_string)
+        .collect()
     }
 }
 
@@ -40,210 +88,46 @@ impl rustyline::completion::Completer for SledCompleter {
         _ctx: &Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
         let line_up_to_cursor = &line[..pos];
+        let start = line_up_to_cursor
+            .rfind(|ch: char| ch == ' ' || ch == '\t')
+            .map_or(0, |index| index + 1);
+        let candidates = self
+            .find_completions(line_up_to_cursor)
+            .into_iter()
+            .map(|completion| rustyline::completion::Pair {
+                display: completion.clone(),
+                replacement: completion,
+            })
+            .collect();
 
-        // Parse the command to see if we can complete keys
-        let parts: Vec<&str> = line_up_to_cursor.split_whitespace().collect();
-
-        if parts.len() >= 2 {
-            let command = parts[0].to_lowercase();
-            if command == "get"
-                || command == "delete"
-                || command == "del"
-                || (command == "set" && parts.len() == 2)
-                || ((command == "list" || command == "ls")
-                    && parts.len() >= 2
-                    && parts[1] != "regex")
-                || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
-            {
-                // We're completing a key - find the current word being typed
-                let current_word = if let Some(last_space) = line_up_to_cursor.rfind(' ') {
-                    &line_up_to_cursor[last_space + 1..]
-                } else {
-                    ""
-                };
-
-                let mut candidates = Vec::new();
-                for key in &self.keys {
-                    if key.starts_with(current_word) {
-                        candidates.push(rustyline::completion::Pair {
-                            display: key.clone(),
-                            replacement: key.clone(),
-                        });
-                    }
-                }
-
-                // Calculate the start position for replacement
-                let start = if let Some(last_space) = line_up_to_cursor.rfind(' ') {
-                    last_space + 1
-                } else {
-                    0
-                };
-
-                return Ok((start, candidates));
-            } else if (command == "select"
-                || (command == "trees" && parts.len() >= 2 && parts[1] != "regex"))
-                && parts.len() >= 2
-            {
-                // We're completing a tree name
-                let current_word = if let Some(last_space) = line_up_to_cursor.rfind(' ') {
-                    &line_up_to_cursor[last_space + 1..]
-                } else {
-                    ""
-                };
-
-                let mut candidates = Vec::new();
-                for tree in &self.trees {
-                    if tree.starts_with(current_word) {
-                        candidates.push(rustyline::completion::Pair {
-                            display: tree.clone(),
-                            replacement: tree.clone(),
-                        });
-                    }
-                }
-
-                // Calculate the start position for replacement
-                let start = if let Some(last_space) = line_up_to_cursor.rfind(' ') {
-                    last_space + 1
-                } else {
-                    0
-                };
-
-                return Ok((start, candidates));
-            }
-        }
-
-        // Fallback to command completion
-        let commands = vec![
-            "count", "list", "ls", "get", "set", "delete", "del", "search", "trees", "select",
-            "unselect", "help", "exit", "quit",
-        ];
-        let mut candidates = Vec::new();
-
-        if let Some(word_start) = line_up_to_cursor.rfind(' ') {
-            let word = &line_up_to_cursor[word_start + 1..];
-            for cmd in commands {
-                if cmd.starts_with(word) {
-                    candidates.push(rustyline::completion::Pair {
-                        display: cmd.to_string(),
-                        replacement: cmd.to_string(),
-                    });
-                }
-            }
-            Ok((word_start + 1, candidates))
-        } else {
-            for cmd in commands {
-                if cmd.starts_with(line_up_to_cursor) {
-                    candidates.push(rustyline::completion::Pair {
-                        display: cmd.to_string(),
-                        replacement: cmd.to_string(),
-                    });
-                }
-            }
-            Ok((0, candidates))
-        }
+        Ok((start, candidates))
     }
 }
 
 pub struct Repl {
     editor: Editor<SledCompleter, MemHistory>,
-    viewer: SledViewer,
-    keys: Vec<String>,
-    trees: Vec<String>,
+    viewer: Rc<RefCell<SledViewer>>,
 }
 
 impl Repl {
     #[must_use]
     pub fn new(viewer: SledViewer) -> Self {
+        let viewer = Rc::new(RefCell::new(viewer));
         let mut editor = Editor::<SledCompleter, MemHistory>::with_history(
             rustyline::Config::default(),
             MemHistory::new(),
         )
         .expect("Failed to create readline editor");
-        let completer = SledCompleter::new();
+        let completer = SledCompleter::new(Rc::clone(&viewer), COMPLETION_LIMIT);
         editor.set_helper(Some(completer));
 
-        Self {
-            editor,
-            viewer,
-            keys: Vec::new(),
-            trees: Vec::new(),
-        }
-    }
-
-    fn load_keys(&mut self) {
-        match self.viewer.list_keys("*", false) {
-            Ok(keys) => {
-                keys.clone_into(&mut self.keys);
-                // Update the completer with new keys
-                if let Some(helper) = self.editor.helper_mut() {
-                    helper.update_keys(keys);
-                }
-            }
-            Err(e) => {
-                eprintln!("Warning: Failed to load keys for completion: {e}");
-            }
-        }
-    }
-
-    fn load_trees(&mut self) {
-        match self.viewer.list_trees("*", false) {
-            Ok(trees) => {
-                trees.clone_into(&mut self.trees);
-                // Update the completer with new trees
-                if let Some(helper) = self.editor.helper_mut() {
-                    helper.update_trees(trees);
-                }
-            }
-            Err(e) => {
-                eprintln!("Warning: Failed to load trees for completion: {e}");
-            }
-        }
+        Self { editor, viewer }
     }
 
     fn find_completions(&self, line: &str) -> Vec<String> {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-
-        if parts.len() >= 2 {
-            let command = parts[0].to_lowercase();
-            if command == "get"
-                || command == "delete"
-                || command == "del"
-                || (command == "set" && parts.len() == 2)
-                || ((command == "list" || command == "ls")
-                    && parts.len() >= 2
-                    && parts[1] != "regex")
-                || (command == "search" && parts.len() >= 2 && parts[1] != "regex")
-            {
-                // Find the current word being typed
-                let prefix = parts.last().copied().unwrap_or("");
-
-                let mut candidates = Vec::new();
-                for key in &self.keys {
-                    if key.starts_with(prefix) {
-                        candidates.push(key.clone());
-                    }
-                }
-
-                return candidates;
-            } else if (command == "select"
-                || (command == "trees" && parts.len() >= 2 && parts[1] != "regex"))
-                && parts.len() >= 2
-            {
-                // Find the current tree being typed
-                let prefix = parts.last().copied().unwrap_or("");
-
-                let mut candidates = Vec::new();
-                for tree in &self.trees {
-                    if tree.starts_with(prefix) {
-                        candidates.push(tree.clone());
-                    }
-                }
-
-                return candidates;
-            }
-        }
-
-        Vec::new()
+        self.editor
+            .helper()
+            .map_or_else(Vec::new, |helper| helper.find_completions(line))
     }
 
     fn try_auto_complete(&self, line: &str) -> Option<String> {
@@ -263,32 +147,19 @@ impl Repl {
     }
 
     fn should_show_completion_hint(&self, line: &str) -> bool {
-        if line.trim().is_empty() {
+        let prefix = line
+            .trim_end_matches(|ch| ch == ' ' || ch == '\t')
+            .split_whitespace()
+            .last()
+            .unwrap_or("");
+
+        if prefix.is_empty() {
             return false;
         }
 
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 {
-            let command = parts[0].to_lowercase();
-            if command == "get"
-                || command == "delete"
-                || command == "del"
-                || command == "list"
-                || command == "ls"
-                || command == "search"
-                || (command == "set" && parts.len() == 2)
-            {
-                let prefix = parts.last().copied().unwrap_or("");
-                // Show hint if we have a partial key that could be completed
-                return !prefix.is_empty()
-                    && self
-                        .keys
-                        .iter()
-                        .any(|k| k.starts_with(prefix) && k != prefix);
-            }
-        }
-
-        false
+        self.find_completions(line)
+            .iter()
+            .any(|completion| completion != prefix)
     }
 
     #[allow(clippy::unnecessary_wraps)] // avoid breaking public API
@@ -308,13 +179,9 @@ impl Repl {
         );
         println!();
 
-        // Load keys and trees for completion
-        self.load_keys();
-        self.load_trees();
-
         loop {
             // Create prompt that shows selected tree
-            let prompt = match self.viewer.get_selected_tree() {
+            let prompt = match self.viewer.borrow().get_selected_tree() {
                 Some(tree) => format!("[{tree}]> "),
                 None => "> ".to_string(),
             };
@@ -356,7 +223,7 @@ impl Repl {
                                     break;
                                 }
                                 Some(command) => {
-                                    if let Err(e) = command.execute(&mut self.viewer) {
+                                    if let Err(e) = command.execute(&mut self.viewer.borrow_mut()) {
                                         println!(
                                             "{} {}",
                                             "Error:".bright_red().bold(),
@@ -365,9 +232,6 @@ impl Repl {
                                     } else if !command.is_usage_error() {
                                         let _ = self.editor.add_history_entry(&completed);
                                     }
-                                    // Reload keys and trees after any command in case database changed
-                                    self.load_keys();
-                                    self.load_trees();
                                 }
                                 None => {
                                     println!(
@@ -400,7 +264,7 @@ impl Repl {
                             break;
                         }
                         Some(command) => {
-                            if let Err(e) = command.execute(&mut self.viewer) {
+                            if let Err(e) = command.execute(&mut self.viewer.borrow_mut()) {
                                 println!(
                                     "{} {}",
                                     "Error:".bright_red().bold(),
@@ -409,9 +273,6 @@ impl Repl {
                             } else if !command.is_usage_error() {
                                 let _ = self.editor.add_history_entry(line);
                             }
-                            // Reload keys and trees after any command in case database changed
-                            self.load_keys();
-                            self.load_trees();
                         }
                         None => {
                             println!(
@@ -478,5 +339,60 @@ impl Repl {
                 }
             }
         }
+    }
+}
+
+fn key_completion_prefix<'a>(
+    command: &str,
+    parts: &[&'a str],
+    ends_with_whitespace: bool,
+) -> Option<&'a str> {
+    match command {
+        "get" | "delete" | "del" => completion_argument_prefix(parts, ends_with_whitespace),
+        "set" => {
+            if parts.len() == 1 && ends_with_whitespace {
+                Some("")
+            } else if parts.len() == 2 && !ends_with_whitespace {
+                Some(parts[1])
+            } else {
+                None
+            }
+        }
+        "list" | "ls" | "search" => {
+            if parts.get(1).is_some_and(|arg| *arg == "regex") {
+                None
+            } else {
+                completion_argument_prefix(parts, ends_with_whitespace)
+            }
+        }
+        _ => None,
+    }
+}
+
+fn tree_completion_prefix<'a>(
+    command: &str,
+    parts: &[&'a str],
+    ends_with_whitespace: bool,
+) -> Option<&'a str> {
+    match command {
+        "select" => completion_argument_prefix(parts, ends_with_whitespace),
+        "trees" => {
+            if parts.get(1).is_some_and(|arg| *arg == "regex") {
+                None
+            } else {
+                completion_argument_prefix(parts, ends_with_whitespace)
+            }
+        }
+        _ => None,
+    }
+}
+
+fn completion_argument_prefix<'a>(parts: &[&'a str], ends_with_whitespace: bool) -> Option<&'a str> {
+    if parts.len() == 1 && ends_with_whitespace {
+        Some("")
+    } else if parts.len() == 2 && !ends_with_whitespace {
+        Some(parts[1])
+    } else {
+        None
     }
 }

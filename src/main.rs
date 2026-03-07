@@ -10,7 +10,6 @@ use clap::Parser;
 use colored::*;
 
 use cli::Args;
-use db::SledViewer;
 use error::SledoViewError;
 use repl::Repl;
 use validator::DatabaseValidator;
@@ -30,14 +29,8 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Validate the database
-    let validator = DatabaseValidator::new(&args.database_path);
-    if let Err(e) = validator.validate() {
-        startup_error_and_exit(e);
-    }
-
-    // Open the database
-    let viewer = match SledViewer::new(&args.database_path) {
+    // Validate and open the database through one startup flow.
+    let viewer = match DatabaseValidator::new(&args.database_path).open() {
         Ok(v) => v,
         Err(e) => startup_error_and_exit(e),
     };
