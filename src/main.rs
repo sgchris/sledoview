@@ -42,15 +42,6 @@ fn main() -> Result<()> {
         Err(e) => startup_error_and_exit(e),
     };
 
-    // Check if database is writable
-    if !viewer.is_writable() {
-        println!(
-            "{} {}",
-            "⚠".bright_yellow().bold(),
-            "Database opened in read-only mode (write operations will fail)".bright_yellow()
-        );
-    }
-
     println!(
         "{} {}",
         "✓".bright_green().bold(),

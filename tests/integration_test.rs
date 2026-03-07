@@ -202,10 +202,9 @@ fn test_sled_viewer_set_with_quotes() {
 }
 
 #[test]
-fn test_sled_viewer_is_writable() {
+fn test_sled_viewer_open_does_not_create_sentinel_key() {
     let temp_dir = common::create_test_db();
     let viewer = SledViewer::new(temp_dir.path()).unwrap();
 
-    // Test database should be writable
-    assert!(viewer.is_writable());
+    assert!(viewer.get_key("__sledoview_test__").is_err());
 }

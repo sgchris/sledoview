@@ -380,11 +380,7 @@ impl Command {
                             key.bright_cyan().bold(),
                             "with value".bright_green()
                         );
-                        let truncated_value = if value.len() > 50 {
-                            format!("{}...", &value[..50])
-                        } else {
-                            value.clone()
-                        };
+                        let truncated_value = truncate_with_ellipsis(value, 50);
                         println!(
                             "  {} {}",
                             "Value:".bright_blue(),
@@ -575,13 +571,16 @@ fn print_key_info(info: &KeyInfo) {
     println!("{}", "Value:".bright_blue().bold());
     println!("{}", "─".repeat(50).bright_black());
 
-    if info.value.len() > 1000 {
-        println!("{}", format!("{}...", &info.value[..1000]).bright_white());
+    if exceeds_char_limit(&info.value, 1000) {
+        println!(
+            "{}",
+            truncate_with_ellipsis(&info.value, 1000).bright_white()
+        );
         println!(
             "{}",
             format!(
                 "(truncated, showing first 1000 characters of {})",
-                info.value.len()
+                info.value.chars().count()
             )
             .bright_black()
         );
@@ -594,11 +593,23 @@ fn print_key_info(info: &KeyInfo) {
 }
 
 fn truncate_value(value: &str, max_len: usize) -> String {
-    if value.len() <= max_len {
-        value.to_string()
-    } else {
-        format!("{}...", &value[..max_len])
+    truncate_with_ellipsis(value, max_len)
+}
+
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
+}
+
+fn exceeds_char_limit(value: &str, max_chars: usize) -> bool {
+    value.chars().nth(max_chars).is_some()
+}
+
+fn truncate_with_ellipsis(value: &str, max_chars: usize) -> String {
+    if !exceeds_char_limit(value, max_chars) {
+        return value.to_string();
     }
+
+    format!("{}...", truncate_chars(value, max_chars))
 }
 
 fn print_help() {
@@ -986,5 +997,28 @@ mod tests {
         // Unselect doesn't take arguments
         let cmd = Command::parse("unselect extra_arg");
         assert!(matches!(cmd, Some(Command::Unselect)));
+    }
+
+    #[test]
+    fn test_truncate_value_is_unicode_safe() {
+        let value = "hello 👋🌍";
+        let truncated = truncate_value(value, 7);
+
+        assert_eq!(truncated, "hello 👋...");
+        assert!(truncated.is_char_boundary(truncated.len()));
+    }
+
+    #[test]
+    fn test_truncate_value_handles_cjk_and_accented_text() {
+        assert_eq!(truncate_value("café résumé", 6), "café ...");
+        assert_eq!(truncate_value("日本語テキスト", 4), "日本語テ...");
+        assert_eq!(truncate_value("short", 10), "short");
+    }
+
+    #[test]
+    fn test_exceeds_char_limit_uses_character_boundaries() {
+        assert!(exceeds_char_limit("áéíóú", 3));
+        assert!(!exceeds_char_limit("áéí", 3));
+        assert!(exceeds_char_limit("😀😀😀😀", 3));
     }
 }

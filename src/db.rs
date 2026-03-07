@@ -265,35 +265,6 @@ impl SledViewer {
         Ok(existed)
     }
 
-    /// Check if the database is writable
-    #[must_use]
-    pub fn is_writable(&self) -> bool {
-        // Try a test operation to check if the database is writable
-        if let Some(tree_name) = &self.selected_tree {
-            if let Ok(tree) = self.get_tree(tree_name) {
-                match tree.insert(b"__sledoview_test__", b"test") {
-                    Ok(_) => {
-                        let _ = tree.remove(b"__sledoview_test__");
-                        let _ = tree.flush();
-                        true
-                    }
-                    Err(_) => false,
-                }
-            } else {
-                false
-            }
-        } else {
-            match self.db.insert(b"__sledoview_test__", b"test") {
-                Ok(_) => {
-                    let _ = self.db.remove(b"__sledoview_test__");
-                    let _ = self.db.flush();
-                    true
-                }
-                Err(_) => false,
-            }
-        }
-    }
-
     /// List all tree names, optionally filtered by pattern
     pub fn list_trees(&self, pattern: &str, is_regex: bool) -> Result<Vec<String>, SledoViewError> {
         let regex = create_regex(pattern, is_regex)?;
@@ -321,7 +292,13 @@ impl SledViewer {
 
     /// Select a tree to work with
     pub fn select_tree(&mut self, tree_name: &str) -> Result<()> {
-        // Verify the tree exists by trying to open it
+        if !self.tree_exists(tree_name) {
+            return Err(SledoViewError::TreeOperation {
+                message: format!("Tree not found: '{tree_name}'"),
+            }
+            .into());
+        }
+
         let _ = self.get_tree(tree_name)?;
         self.selected_tree = Some(tree_name.to_string());
         Ok(())
@@ -349,6 +326,15 @@ impl SledViewer {
             }
             .into()
         })
+    }
+
+    fn tree_exists(&self, tree_name: &str) -> bool {
+        let expected = tree_name.as_bytes();
+
+        self.db
+            .tree_names()
+            .iter()
+            .any(|name| !name.is_empty() && name.as_ref() != b"__sled__default" && name == expected)
     }
 }
 
@@ -557,12 +543,16 @@ mod tests {
     }
 
     #[test]
-    fn test_is_writable() {
+    fn test_opening_database_does_not_create_sentinel_key() {
         let temp_dir = create_test_db();
         let viewer = SledViewer::new(temp_dir.path()).unwrap();
 
-        // Database should be writable in tests
-        assert!(viewer.is_writable());
+        assert!(viewer.get_key("__sledoview_test__").is_err());
+        assert!(!viewer
+            .db
+            .tree_names()
+            .iter()
+            .any(|name| name.as_ref() == b"__sledoview_test__"));
     }
 
     #[test]
@@ -678,6 +668,9 @@ mod tests {
         // Select a tree
         assert!(viewer.select_tree("test_tree").is_ok());
         assert_eq!(viewer.get_selected_tree().unwrap(), "test_tree");
+
+        let tree_names = viewer.list_trees("*", false).unwrap();
+        assert_eq!(tree_names, vec!["test_tree".to_string()]);
 
         // Unselect tree
         let was_selected = viewer.unselect_tree().unwrap();
@@ -856,9 +849,14 @@ mod tests {
         let db_path = temp_dir.path().join("test_tree_errors");
         let mut viewer = SledViewer::new(&db_path).unwrap();
 
-        // Test selecting non-existent tree should still work (sled creates it)
-        assert!(viewer.select_tree("nonexistent_tree").is_ok());
-        assert_eq!(viewer.get_selected_tree().unwrap(), "nonexistent_tree");
+        let trees_before = viewer.list_trees("*", false).unwrap();
+
+        let err = viewer.select_tree("nonexistent_tree").unwrap_err();
+        assert!(err.to_string().contains("Tree not found"));
+        assert!(viewer.get_selected_tree().is_none());
+
+        let trees_after = viewer.list_trees("*", false).unwrap();
+        assert_eq!(trees_before, trees_after);
 
         // Test operations on empty tree
         let keys = viewer.list_keys("*", false).unwrap();
