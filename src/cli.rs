@@ -6,7 +6,7 @@ use std::path::PathBuf;
     name = "sledoview",
     about = "A CLI tool for viewing and managing SLED databases",
     version,
-    author = "Your Name <your.email@example.com>"
+    author = "Gregory Chris <sgchris@gmail.com>"
 )]
 pub struct Args {
     /// Path to the SLED database file
