@@ -3,261 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SledoView - CLI tool for Sled databases</title>
-    <meta name="description" content="A powerful console application for performing CRUD operations on SLED database files through an interactive terminal interface.">
-    <link rel="icon" type="image/png" href="images/sledoview_logo.png">
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
-    
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-36KWZG6QQ8"></script>
+    <title>Sledoview - The Missing Viewer for Sled Databases</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-
-        gtag('config', 'G-36KWZG6QQ8');
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        rust: '#E36209', // A vibrant, Rust-inspired orange
+                    }
+                }
+            }
+        }
     </script>
 </head>
-<body>
-    <div class="container">
-        <!-- Hero Section -->
-        <header class="hero">
-            <div class="hero-content">
-                <h1 class="hero-title">
-                    <span class="logo">🔍</span>
-                    SledoView
-                </h1>
-                <p class="hero-subtitle">
-                    A powerful console application for exploring and
-                    editing <a href="https://github.com/spacejam/sled" target="_blank" title="https://github.com/spacejam/sled">SLED database</a> files
-                </p>
-                <p class="hero-description">
-                    A Sled DB client as an interactive terminal featuring CRUD operations, search patterns, and autocompletion.
-                </p>
-                <div class="hero-buttons">
-                    <a href="https://github.com/sgchris/sledoview" class="btn btn-primary" target="_blank">
-                        <svg height="16" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="16" data-view-component="true" class="octicon octicon-mark-github v-align-middle">
-                            <path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path>
-                        </svg>
-                        View on GitHub
-                    </a>
-                    <a href="https://github.com/sgchris/sledoview/releases" class="btn btn-secondary"
-                        title="Download and Install from the latest GitHub releases">
-                        <span class="btn-icon">⬇️</span>
-                        Download and Install
-                    </a>
-                </div>
-                
+<body class="bg-gray-50 text-slate-900 font-sans antialiased selection:bg-rust selection:text-white">
+
+    <header class="max-w-6xl mx-auto px-6 py-6 flex justify-between items-center">
+        <div class="font-bold text-2xl tracking-tight text-slate-900">
+            Sledoview<span class="text-rust">.</span>
+        </div>
+        <a href="https://github.com/sgchris/sledoview" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-rust transition-colors">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+            </svg>
+            GitHub
+        </a>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 pt-16 pb-12 text-center">
+        <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6">
+            The Missing Viewer <br class="hidden md:block" /> for <span class="text-transparent bg-clip-text bg-gradient-to-r from-rust to-orange-400">Sled Databases</span>
+        </h1>
+        <p class="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+            A fast, lightweight, terminal-based database browser built in Rust. Inspect keys, search values, and debug your embedded databases instantly.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <a href="https://github.com/sgchris/sledoview" class="w-full sm:w-auto px-8 py-3.5 bg-rust text-white font-semibold rounded-lg shadow-md hover:bg-orange-700 transition-all focus:ring-4 focus:ring-orange-200">
+                View Repository
+            </a>
+            <a href="#install" class="w-full sm:w-auto px-8 py-3.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg shadow-sm hover:bg-slate-50 transition-all focus:ring-4 focus:ring-slate-100">
+                Quick Install
+            </a>
+        </div>
+    </main>
+
+    <section class="max-w-5xl mx-auto px-6 mb-20">
+        <div class="rounded-xl overflow-hidden shadow-2xl bg-[#1e1e1e] border border-slate-700">
+            <div class="bg-[#2d2d2d] px-4 py-3 flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                <div class="ml-4 text-xs text-slate-400 font-mono">user@macbook: ~/tmp</div>
             </div>
-            <div class="hero-demo">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-buttons">
-                            <span class="btn-close"></span>
-                            <span class="btn-minimize"></span>
-                            <span class="btn-maximize"></span>
-                        </div>
-                        <div class="terminal-title">SledoView Terminal</div>
-                    </div>
-                    <div class="terminal-body">
-                        <pre><code class="terminal-content">$ sledoview my-database.db
+                        <div class="p-6 text-sm font-mono text-slate-300 leading-relaxed overflow-x-auto whitespace-pre">
+<span class="text-green-400">➜</span> <span class="text-blue-400">tmp</span> <span class="text-slate-100">sledoview ./grotel.db</span>
 
-<span class="text-cyan">SledoView - SLED Database Viewer</span>
-<span class="text-cyan">═══════════════════════════════════</span>
-<span class="text-green">✓ Database validation passed</span>
-<span class="text-green">✓ Successfully opened database: my-database.db</span>
-<span class="text-green">✓ Database is writable - modification commands available</span>
+<span class="text-cyan-300 font-bold">SledoView - SLED Database Viewer</span>
+<span class="text-cyan-300">═══════════════════════════════════</span>
 
-<span class="text-blue">Interactive SLED Database Viewer</span>
-Type 'help' for available commands or 'exit' to quit.
+<span class="text-yellow-400">Validating database...</span>
+<span class="text-green-400">✓ Database validation passed</span>
+<span class="text-green-400">✓ Successfully opened database: grotel.db</span>
 
-<span class="text-gray">> </span><span class="typing-text">set user_123 "John Doe"</span>
-<span class="text-green">✓ Successfully set key 'user_123'</span>
+<span class="text-cyan-300 font-bold">Interactive SLED Database Client</span>
+<span class="text-slate-500">Type 'help' for available commands or 'exit' to quit.</span>
+<span class="text-slate-500">Use TAB for completion, type partial keys and TAB to auto-complete!</span>
 
-<span class="text-gray">> </span>get user_123
-<span class="text-cyan">Key: user_123</span>
-<span class="text-cyan">Size: 8 bytes</span>
-<span class="text-cyan">UTF-8: Yes</span>
-<span class="text-cyan">Value:</span>
-<span class="text-white">John Doe</span>
+<span class="text-slate-100">&gt; trees</span>
+<span class="text-blue-400">Found <span class="text-yellow-300 font-bold">3</span> trees:</span>
+    <span class="text-cyan-300">another-service</span>
+    <span class="text-cyan-300">my-service</span>
+    <span class="text-cyan-300">settings</span>
+<span class="text-slate-100">&gt; select another-service</span>
+<span class="text-green-400">✓ Selected tree: another-service</span>
+<span class="text-slate-100">[another-service]&gt; set &quot;my-custom-key&quot; &quot;some custom value&quot;</span>
+<span class="text-green-400">✓ Successfully set key <span class="text-cyan-300 font-bold">my-custom-key</span> with value</span>
+    <span class="text-blue-400">Value:</span> <span class="text-slate-100">some custom value</span>
+<span class="text-slate-100">[another-service]&gt; list my-custom*</span>
+<span class="text-blue-400">Found <span class="text-yellow-300 font-bold">1</span> keys:</span>
+    <span class="text-slate-500">1</span>: <span class="text-slate-100">my-custom-key</span> = <span class="text-green-400">some custom value</span>
+<span class="text-slate-100">[another-service]&gt; get my-custom-key</span>
 
-<span class="text-gray">> </span>list user_*
-<span class="text-yellow">Found 3 keys:</span>
-<span class="text-white">  1: user_001</span>
-<span class="text-white">  2: user_123</span>
-<span class="text-white">  3: user_admin</span></code></pre>
-                    </div>
-                </div>
+<span class="text-cyan-300">══════════════════════════════════════════════════</span>
+<span class="text-blue-400 font-bold">Key:</span> <span class="text-cyan-300 font-bold">my-custom-key</span>
+<span class="text-blue-400 font-bold">Size:</span> <span class="text-yellow-300">17</span> bytes
+<span class="text-blue-400 font-bold">UTF-8:</span> <span class="text-green-400">Yes</span>
+<span class="text-blue-400 font-bold">Value:</span>
+<span class="text-slate-500">──────────────────────────────────────────────────</span>
+<span class="text-slate-100">some custom value</span>
+<span class="text-cyan-300">══════════════════════════════════════════════════</span>
+
+<span class="text-slate-100">[another-service]&gt;</span>
             </div>
-        </header>
+        </div>
+    </section>
 
-        <!-- Available Commands Section -->
-        <section class="commands-reference">
-            <h2 class="section-title">Available Commands</h2>
-            <div class="commands-table-container">
-                <table class="commands-table">
-                    <thead>
-                        <tr>
-                            <th>Command</th>
-                            <th>Description</th>
-                            <th>Example(s)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><code>list</code></td>
-                            <td>Lists keys in the current tree. Supports optional glob or regex filtering.</td>
-                            <td>
-                                <code>list</code> — lists all keys<br>
-                                <code>list user_*</code> — lists keys starting with user_
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><code>get</code></td>
-                            <td>Retrieves and displays the value for a given key.</td>
-                            <td><code>get user_001</code> — shows the value for user_001</td>
-                        </tr>
-                        <tr>
-                            <td><code>set</code></td>
-                            <td>Inserts or updates a key-value pair in the current tree.</td>
-                            <td>
-                                <code>set user_001 '{"name":"Alice"}'</code> — sets JSON value<br>
-                                <code>set counter 42</code> — sets numeric value
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><code>delete</code></td>
-                            <td>Removes a key (and its value) from the current tree.</td>
-                            <td><code>delete user_001</code> — deletes the key user_001</td>
-                        </tr>
-                        <tr>
-                            <td><code>trees</code></td>
-                            <td>Lists all trees in the database.</td>
-                            <td><code>trees</code> — displays available trees</td>
-                        </tr>
-                        <tr>
-                            <td><code>select</code></td>
-                            <td>Switches the active tree for subsequent commands.</td>
-                            <td><code>select sessions</code> — changes active tree to sessions</td>
-                        </tr>
-                        <tr>
-                            <td><code>unselect</code></td>
-                            <td>Returns to the default tree (removes active tree selection).</td>
-                            <td><code>unselect</code> — goes back to the default tree</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+    <section id="install" class="max-w-3xl mx-auto px-6 mb-24">
+        <div class="text-center mb-4">
+            <h2 class="text-sm font-bold uppercase tracking-widest text-slate-400">Get Started Immediately</h2>
+        </div>
+        <div class="bg-slate-900 rounded-lg p-4 flex justify-between items-center shadow-lg border border-slate-800">
+            <code class="font-mono text-green-400 text-sm md:text-base">$ cargo install sledoview</code>
+            <button onclick="navigator.clipboard.writeText('cargo install sledoview')" class="p-2 text-slate-400 hover:text-white transition-colors" title="Copy to clipboard">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                </svg>
+            </button>
+        </div>
+    </section>
 
-        <!-- Commands Section -->
-        <section class="commands">
-            <h2 class="section-title">Example of working with the Sled DB file</h2>
-            <div class="terminal">
-                <div class="terminal-header">
-                    <div class="terminal-buttons">
-                        <span class="btn-close"></span>
-                        <span class="btn-minimize"></span>
-                        <span class="btn-maximize"></span>
-                    </div>
-                    <div class="terminal-title">SledoView - Tree Operations Demo</div>
+    <section class="bg-white border-t border-slate-200 py-20">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+                <div>
+                    <div class="w-12 h-12 bg-orange-100 text-rust rounded-lg flex items-center justify-center mb-4 text-2xl">⚡</div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Blazing Fast</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">Written entirely in Rust. Handles large Sled databases smoothly without consuming all your memory.</p>
                 </div>
-                <div class="terminal-body">
-                    <pre><code class="terminal-content">
-SledoView - SLED Database Viewer
-═══════════════════════════════════
-Validating database...
-✓ Database validation passed
-✓ Successfully opened database: sample_with_trees.db
-
-Interactive SLED Database Client
-Type 'help' for available commands or 'exit' to quit.
-Use TAB for completion, type partial keys and TAB to auto-complete!
-
-> trees
-Found 11 trees:
-  binary_data
-  cache
-  configuration
-  logs
-  metrics
-  nonexistent_new_tree
-  nonexistent_tree
-  sessions
-  settings
-  settings`nlist`nunselect`nexit
-  test_data
-> select metrics
-✓ Selected tree: metrics
-[metrics]> list
-Found 12 keys:
-  1: cpu_usage:2024-01-01T10:00 = 45.2
-  2: cpu_usage:2024-01-01T10:01 = 52.1
-  3: cpu_usage:2024-01-01T10:02 = 38.7
-  4: error_count:today = 2
-  5: error_count:total = 45
-  6: memory_usage:2024-01-01T10:00 = 1024.5
-  7: memory_usage:2024-01-01T10:01 = 1156.8
-  8: memory_usage:2024-01-01T10:02 = 987.3
-  9: request_count:today = 234
-  10: request_count:total = 15847
-  11: response_time:avg = 125.4
-  12: response_time:p95 = 450.2
-[metrics]> delete response_time:avg
-✓ Successfully deleted key response_time:avg
-[metrics]> get memory_usage:2024-01-01T10:00
-
-══════════════════════════════════════════════════
-Key: memory_usage:2024-01-01T10:00
-Size: 6 bytes
-UTF-8: Yes
-Value:
-──────────────────────────────────────────────────
-1024.5
-══════════════════════════════════════════════════
-
-[metrics]> unselect
-✓ Tree unselected. Now working with the default tree.
->
-
-</code></pre>
+                <div>
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-4 text-2xl">🔍</div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Effortless Search</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">Quickly filter through keys or payloads to find exactly what you are looking for in seconds.</p>
+                </div>
+                <div>
+                    <div class="w-12 h-12 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mb-4 text-2xl">💻</div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Cross-Platform</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">Runs natively on Linux, macOS, and Windows. If you have a terminal, you can run Sledoview.</p>
+                </div>
+                <div>
+                    <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center mb-4 text-2xl">🛠️</div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Zero Config</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">No complex setup files required. Just point the CLI at your database directory path and start browsing.</p>
                 </div>
             </div>
-        </section>
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h4>SledoView</h4>
-                    <p>A powerful console application for SLED database CRUD operations</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Links</h4>
-                    <ul>
-                        <li><a href="https://github.com/sgchris/sledoview" target="_blank">GitHub Repository</a></li>
-                        <li><a href="https://github.com/sgchris/sledoview/issues" target="_blank">Issues & Bug Reports</a></li>
-                        <li><a href="https://github.com/sgchris/sledoview/blob/master/README.md" target="_blank">Documentation</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h4>Technology</h4>
-                    <ul>
-                        <li><a href="https://github.com/spacejam/sled" target="_blank">SLED Database</a></li>
-                        <li><a href="https://www.rust-lang.org/" target="_blank">Rust Language</a></li>
-                        <li><a href="https://github.com/kkawakam/rustyline" target="_blank">Rustyline</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 SledoView. Licensed under the MIT License.</p>
-            </div>
-        </footer>
-    </div>
+        </div>
+    </section>
 
-    <script src="script.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
+    <footer class="max-w-6xl mx-auto px-6 py-10 border-t border-slate-200 mt-auto flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="text-sm text-slate-500">
+            &copy; 2026 Sledoview. Released under the MIT License.
+        </div>
+        <div class="flex gap-6 text-sm font-medium text-slate-600">
+            <a href="https://github.com/sgchris/sledoview/issues" class="hover:text-rust transition-colors">Report an Issue</a>
+            <a href="https://github.com/sgchris/sledoview/pulls" class="hover:text-rust transition-colors">Contribute</a>
+        </div>
+    </footer>
+
 </body>
 </html>

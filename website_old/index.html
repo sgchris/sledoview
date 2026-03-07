@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SledoView - CLI tool for Sled databases</title>
+    <meta name="description" content="A powerful console application for performing CRUD operations on SLED database files through an interactive terminal interface.">
+    <link rel="icon" type="image/png" href="images/sledoview_logo.png">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-36KWZG6QQ8"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-36KWZG6QQ8');
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- Hero Section -->
+        <header class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="logo">🔍</span>
+                    SledoView
+                </h1>
+                <p class="hero-subtitle">
+                    A powerful console application for exploring and
+                    editing <a href="https://github.com/spacejam/sled" target="_blank" title="https://github.com/spacejam/sled">SLED database</a> files
+                </p>
+                <p class="hero-description">
+                    A Sled DB client as an interactive terminal featuring CRUD operations, search patterns, and autocompletion.
+                </p>
+                <div class="hero-buttons">
+                    <a href="https://github.com/sgchris/sledoview" class="btn btn-primary" target="_blank">
+                        <svg height="16" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="16" data-view-component="true" class="octicon octicon-mark-github v-align-middle">
+                            <path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path>
+                        </svg>
+                        View on GitHub
+                    </a>
+                    <a href="https://github.com/sgchris/sledoview/releases" class="btn btn-secondary"
+                        title="Download and Install from the latest GitHub releases">
+                        <span class="btn-icon">⬇️</span>
+                        Download and Install
+                    </a>
+                </div>
+                
+            </div>
+            <div class="hero-demo">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-buttons">
+                            <span class="btn-close"></span>
+                            <span class="btn-minimize"></span>
+                            <span class="btn-maximize"></span>
+                        </div>
+                        <div class="terminal-title">SledoView Terminal</div>
+                    </div>
+                    <div class="terminal-body">
+                        <pre><code class="terminal-content">$ sledoview my-database.db
+
+<span class="text-cyan">SledoView - SLED Database Viewer</span>
+<span class="text-cyan">═══════════════════════════════════</span>
+<span class="text-green">✓ Database validation passed</span>
+<span class="text-green">✓ Successfully opened database: my-database.db</span>
+<span class="text-green">✓ Database is writable - modification commands available</span>
+
+<span class="text-blue">Interactive SLED Database Viewer</span>
+Type 'help' for available commands or 'exit' to quit.
+
+<span class="text-gray">> </span><span class="typing-text">set user_123 "John Doe"</span>
+<span class="text-green">✓ Successfully set key 'user_123'</span>
+
+<span class="text-gray">> </span>get user_123
+<span class="text-cyan">Key: user_123</span>
+<span class="text-cyan">Size: 8 bytes</span>
+<span class="text-cyan">UTF-8: Yes</span>
+<span class="text-cyan">Value:</span>
+<span class="text-white">John Doe</span>
+
+<span class="text-gray">> </span>list user_*
+<span class="text-yellow">Found 3 keys:</span>
+<span class="text-white">  1: user_001</span>
+<span class="text-white">  2: user_123</span>
+<span class="text-white">  3: user_admin</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Available Commands Section -->
+        <section class="commands-reference">
+            <h2 class="section-title">Available Commands</h2>
+            <div class="commands-table-container">
+                <table class="commands-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                            <th>Example(s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>list</code></td>
+                            <td>Lists keys in the current tree. Supports optional glob or regex filtering.</td>
+                            <td>
+                                <code>list</code> — lists all keys<br>
+                                <code>list user_*</code> — lists keys starting with user_
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>get</code></td>
+                            <td>Retrieves and displays the value for a given key.</td>
+                            <td><code>get user_001</code> — shows the value for user_001</td>
+                        </tr>
+                        <tr>
+                            <td><code>set</code></td>
+                            <td>Inserts or updates a key-value pair in the current tree.</td>
+                            <td>
+                                <code>set user_001 '{"name":"Alice"}'</code> — sets JSON value<br>
+                                <code>set counter 42</code> — sets numeric value
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>delete</code></td>
+                            <td>Removes a key (and its value) from the current tree.</td>
+                            <td><code>delete user_001</code> — deletes the key user_001</td>
+                        </tr>
+                        <tr>
+                            <td><code>trees</code></td>
+                            <td>Lists all trees in the database.</td>
+                            <td><code>trees</code> — displays available trees</td>
+                        </tr>
+                        <tr>
+                            <td><code>select</code></td>
+                            <td>Switches the active tree for subsequent commands.</td>
+                            <td><code>select sessions</code> — changes active tree to sessions</td>
+                        </tr>
+                        <tr>
+                            <td><code>unselect</code></td>
+                            <td>Returns to the default tree (removes active tree selection).</td>
+                            <td><code>unselect</code> — goes back to the default tree</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Commands Section -->
+        <section class="commands">
+            <h2 class="section-title">Example of working with the Sled DB file</h2>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-buttons">
+                        <span class="btn-close"></span>
+                        <span class="btn-minimize"></span>
+                        <span class="btn-maximize"></span>
+                    </div>
+                    <div class="terminal-title">SledoView - Tree Operations Demo</div>
+                </div>
+                <div class="terminal-body">
+                    <pre><code class="terminal-content">
+SledoView - SLED Database Viewer
+═══════════════════════════════════
+Validating database...
+✓ Database validation passed
+✓ Successfully opened database: sample_with_trees.db
+
+Interactive SLED Database Client
+Type 'help' for available commands or 'exit' to quit.
+Use TAB for completion, type partial keys and TAB to auto-complete!
+
+> trees
+Found 11 trees:
+  binary_data
+  cache
+  configuration
+  logs
+  metrics
+  nonexistent_new_tree
+  nonexistent_tree
+  sessions
+  settings
+  settings`nlist`nunselect`nexit
+  test_data
+> select metrics
+✓ Selected tree: metrics
+[metrics]> list
+Found 12 keys:
+  1: cpu_usage:2024-01-01T10:00 = 45.2
+  2: cpu_usage:2024-01-01T10:01 = 52.1
+  3: cpu_usage:2024-01-01T10:02 = 38.7
+  4: error_count:today = 2
+  5: error_count:total = 45
+  6: memory_usage:2024-01-01T10:00 = 1024.5
+  7: memory_usage:2024-01-01T10:01 = 1156.8
+  8: memory_usage:2024-01-01T10:02 = 987.3
+  9: request_count:today = 234
+  10: request_count:total = 15847
+  11: response_time:avg = 125.4
+  12: response_time:p95 = 450.2
+[metrics]> delete response_time:avg
+✓ Successfully deleted key response_time:avg
+[metrics]> get memory_usage:2024-01-01T10:00
+
+══════════════════════════════════════════════════
+Key: memory_usage:2024-01-01T10:00
+Size: 6 bytes
+UTF-8: Yes
+Value:
+──────────────────────────────────────────────────
+1024.5
+══════════════════════════════════════════════════
+
+[metrics]> unselect
+✓ Tree unselected. Now working with the default tree.
+>
+
+</code></pre>
+                </div>
+            </div>
+        </section>
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>SledoView</h4>
+                    <p>A powerful console application for SLED database CRUD operations</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://github.com/sgchris/sledoview" target="_blank">GitHub Repository</a></li>
+                        <li><a href="https://github.com/sgchris/sledoview/issues" target="_blank">Issues & Bug Reports</a></li>
+                        <li><a href="https://github.com/sgchris/sledoview/blob/master/README.md" target="_blank">Documentation</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Technology</h4>
+                    <ul>
+                        <li><a href="https://github.com/spacejam/sled" target="_blank">SLED Database</a></li>
+                        <li><a href="https://www.rust-lang.org/" target="_blank">Rust Language</a></li>
+                        <li><a href="https://github.com/kkawakam/rustyline" target="_blank">Rustyline</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 SledoView. Licensed under the MIT License.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+</html>
