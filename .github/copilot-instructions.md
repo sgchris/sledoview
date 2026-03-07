@@ -24,6 +24,7 @@ These instructions are based on [The Rust Book](https://doc.rust-lang.org/book/)
 - Keep read paths, validation paths, and startup checks side-effect free unless mutation is explicitly part of the command contract.
 - Preserve user data integrity: never probe writability, existence, or accessibility by performing temporary writes to the real database.
 - Favor predictable CLI behavior: commands that look read-only must not create, delete, or mutate database state.
+- Do not leave temporary files, alternate build directories, scratch outputs, or other disposable artifacts behind after prompt execution unless the user explicitly asked to keep them.
 
 ## Patterns to Follow
 
