@@ -60,26 +60,47 @@
                 <div class="w-3 h-3 rounded-full bg-red-500"></div>
                 <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                <div class="ml-4 text-xs text-slate-400 font-mono">user@machine: ~/projects/db</div>
+                                <div class="ml-4 text-xs text-slate-400 font-mono">user@macbook: ~/tmp</div>
             </div>
-            <div class="p-6 text-sm font-mono text-slate-300 leading-relaxed overflow-x-auto">
-                <p class="mb-2"><span class="text-green-400">➜</span> <span class="text-blue-400">sledoview</span> ./my-sled-db</p>
-                <p class="text-slate-500 mb-4">Opening database at ./my-sled-db...</p>
-                
-                <div class="grid grid-cols-2 border border-slate-700 rounded mb-2">
-                    <div class="p-2 border-b border-r border-slate-700 font-bold text-rust">Key</div>
-                    <div class="p-2 border-b border-slate-700 font-bold text-rust">Value</div>
-                    
-                    <div class="p-2 border-b border-r border-slate-700">user:1001</div>
-                    <div class="p-2 border-b border-slate-700 text-green-300">{"name": "Alice", "status": "active"}</div>
-                    
-                    <div class="p-2 border-b border-r border-slate-700">user:1002</div>
-                    <div class="p-2 border-b border-slate-700 text-green-300">{"name": "Bob", "status": "inactive"}</div>
-                    
-                    <div class="p-2 border-r border-slate-700">config:theme</div>
-                    <div class="p-2 text-green-300">"dark-mode"</div>
-                </div>
-                <p class="text-slate-500 mt-4">[↑/↓: navigate] [/: search] [q: quit]</p>
+                        <div class="p-6 text-sm font-mono text-slate-300 leading-relaxed overflow-x-auto whitespace-pre">
+<span class="text-green-400">➜</span> <span class="text-blue-400">tmp</span> <span class="text-slate-100">sledoview ./grotel.db</span>
+
+<span class="text-cyan-300 font-bold">SledoView - SLED Database Viewer</span>
+<span class="text-cyan-300">═══════════════════════════════════</span>
+
+<span class="text-yellow-400">Validating database...</span>
+<span class="text-green-400">✓ Database validation passed</span>
+<span class="text-green-400">✓ Successfully opened database: grotel.db</span>
+
+<span class="text-cyan-300 font-bold">Interactive SLED Database Client</span>
+<span class="text-slate-500">Type 'help' for available commands or 'exit' to quit.</span>
+<span class="text-slate-500">Use TAB for completion, type partial keys and TAB to auto-complete!</span>
+
+<span class="text-slate-100">&gt; trees</span>
+<span class="text-blue-400">Found <span class="text-yellow-300 font-bold">3</span> trees:</span>
+    <span class="text-cyan-300">another-service</span>
+    <span class="text-cyan-300">my-service</span>
+    <span class="text-cyan-300">settings</span>
+<span class="text-slate-100">&gt; select another-service</span>
+<span class="text-green-400">✓ Selected tree: another-service</span>
+<span class="text-slate-100">[another-service]&gt; set &quot;my-custom-key&quot; &quot;some custom value&quot;</span>
+<span class="text-green-400">✓ Successfully set key <span class="text-cyan-300 font-bold">my-custom-key</span> with value</span>
+    <span class="text-blue-400">Value:</span> <span class="text-slate-100">some custom value</span>
+<span class="text-slate-100">[another-service]&gt; list my-custom*</span>
+<span class="text-blue-400">Found <span class="text-yellow-300 font-bold">1</span> keys:</span>
+    <span class="text-slate-500">1</span>: <span class="text-slate-100">my-custom-key</span> = <span class="text-green-400">some custom value</span>
+<span class="text-slate-100">[another-service]&gt; get my-custom-key</span>
+
+<span class="text-cyan-300">══════════════════════════════════════════════════</span>
+<span class="text-blue-400 font-bold">Key:</span> <span class="text-cyan-300 font-bold">my-custom-key</span>
+<span class="text-blue-400 font-bold">Size:</span> <span class="text-yellow-300">17</span> bytes
+<span class="text-blue-400 font-bold">UTF-8:</span> <span class="text-green-400">Yes</span>
+<span class="text-blue-400 font-bold">Value:</span>
+<span class="text-slate-500">──────────────────────────────────────────────────</span>
+<span class="text-slate-100">some custom value</span>
+<span class="text-cyan-300">══════════════════════════════════════════════════</span>
+
+<span class="text-slate-100">[another-service]&gt;</span>
             </div>
         </div>
     </section>
