@@ -1,5 +1,4 @@
-use crate::error::SledoViewError;
-use anyhow::Result;
+use crate::error::{Result, SledoViewError};
 use regex::Regex;
 use sled::{Db, Tree};
 use std::path::Path;
@@ -17,9 +16,8 @@ impl SledViewer {
                 SledoViewError::DatabaseLocked {
                     path: path.display().to_string(),
                 }
-                .into()
             } else {
-                anyhow::Error::from(e)
+                SledoViewError::from(e)
             }
         })?;
         Ok(Self {
@@ -194,8 +192,7 @@ impl SledViewer {
         } else {
             Err(SledoViewError::KeyNotFound {
                 key: key.to_string(),
-            }
-            .into())
+            })
         }
     }
 
@@ -311,7 +308,7 @@ impl SledViewer {
     }
 
     /// List all tree names, optionally filtered by pattern
-    pub fn list_trees(&self, pattern: &str, is_regex: bool) -> Result<Vec<String>, SledoViewError> {
+    pub fn list_trees(&self, pattern: &str, is_regex: bool) -> Result<Vec<String>> {
         let regex = create_regex(pattern, is_regex)?;
         let mut tree_names = Vec::new();
 
@@ -340,8 +337,7 @@ impl SledViewer {
         if !self.tree_exists(tree_name) {
             return Err(SledoViewError::TreeOperation {
                 message: format!("Tree not found: '{tree_name}'"),
-            }
-            .into());
+            });
         }
 
         let _ = self.get_tree(tree_name)?;
@@ -369,7 +365,6 @@ impl SledViewer {
             SledoViewError::TreeOperation {
                 message: format!("Failed to open tree '{name}': {e}"),
             }
-            .into()
         })
     }
 
@@ -490,7 +485,7 @@ fn glob_to_regex(pattern: &str) -> String {
     regex
 }
 
-fn create_regex(pattern: &str, is_regex: bool) -> Result<Regex, SledoViewError> {
+fn create_regex(pattern: &str, is_regex: bool) -> Result<Regex> {
     if is_regex {
         Regex::new(pattern).map_err(|_| SledoViewError::InvalidRegex {
             pattern: pattern.to_string(),

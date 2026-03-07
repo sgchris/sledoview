@@ -38,19 +38,19 @@ The application opens the database during validation to test lock state, then op
 
 Recommended change: consolidate validation and opening into one typed constructor or initialization flow.
 
-## [ ] 7. Error handling mixes typed domain errors with `anyhow`
+## [x] 7. Error handling mixes typed domain errors with `anyhow`
 
 The code defines a dedicated `SledoViewError`, but many core APIs still return `anyhow::Result`, and startup code has to downcast errors to recover structured meaning. This weakens the API design and makes error handling less idiomatic.
 
 Recommended change: use `SledoViewError` throughout the library layers and convert at the binary boundary only if needed.
 
-## [ ] 8. Key validation does not match sled's data model
+## [x] 8. Key validation does not match sled's data model
 
 The write path restricts keys to a narrow ASCII subset, while the rest of the code explicitly supports binary keys and non-UTF-8 display paths. That inconsistency makes the API harder to reason about and limits legitimate sled use cases.
 
 Recommended change: either support binary/non-ASCII keys consistently or clearly separate textual CLI constraints from the underlying database model.
 
-## [ ] 9. Command parsing is too permissive and partly ad hoc
+## [x] 9. Command parsing is too permissive and partly ad hoc
 
 The command parser is handwritten and some commands accept extra trailing arguments but silently ignore them. That makes mistakes harder to detect and leads to brittle CLI behavior.
 

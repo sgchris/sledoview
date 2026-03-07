@@ -55,27 +55,48 @@ fn parse_quoted_args(input: &str) -> Vec<String> {
     args
 }
 
-/// Validate that a key contains only allowed characters for SLED
+/// Validate that a CLI key is non-empty, reasonably sized, and terminal-safe.
 fn validate_key(key: &str) -> Result<(), String> {
     if key.is_empty() {
         return Err("Key cannot be empty".to_string());
     }
 
-    if key.len() > 512 {
+    if key.chars().count() > 512 {
         return Err("Key too long (max 512 characters)".to_string());
     }
 
-    // Allow alphanumeric, underscore, hyphen, dot, colon, and forward slash
-    // These are commonly safe characters for database keys
-    for ch in key.chars() {
-        if !ch.is_ascii_alphanumeric() && !matches!(ch, '_' | '-' | '.' | ':' | '/' | ' ') {
-            return Err(format!(
-                "Invalid character '{ch}' in key. Allowed: a-z, A-Z, 0-9, _, -, ., :, /, space",
-            ));
-        }
+    if let Some(ch) = key.chars().find(|ch| ch.is_control()) {
+        return Err(format!(
+            "Invalid control character U+{:04X} in key. Use printable UTF-8 text only.",
+            u32::from(ch)
+        ));
     }
 
     Ok(())
+}
+
+fn usage_error(message: &str, usage: &str) -> Command {
+    Command::UsageError {
+        message: message.to_string(),
+        usage: usage.to_string(),
+    }
+}
+
+fn parse_fixed_arity_command<F>(
+    args: &[String],
+    expected: usize,
+    message: &str,
+    usage: &str,
+    build: F,
+) -> Command
+where
+    F: FnOnce(&[String]) -> Command,
+{
+    if args.len() == expected {
+        build(args)
+    } else {
+        usage_error(message, usage)
+    }
 }
 
 #[derive(Debug)]
@@ -126,7 +147,13 @@ impl Command {
         }
 
         match args[0].to_lowercase().as_str() {
-            "count" => Some(Command::Count),
+            "count" => Some(parse_fixed_arity_command(
+                &args,
+                1,
+                "Invalid arguments for 'count'.",
+                "count",
+                |_| Command::Count,
+            )),
             "list" | "ls" => {
                 if args.len() == 1 {
                     Some(Command::List {
@@ -150,49 +177,40 @@ impl Command {
                     })
                 }
             }
-            "get" => {
-                if args.len() >= 2 {
-                    Some(Command::Get {
-                        key: args[1].clone(),
-                    })
-                } else {
-                    Some(Command::UsageError {
-                        message: "'get' requires a key argument.".to_string(),
-                        usage: "get <key>".to_string(),
-                    })
-                }
-            }
-            "set" => {
-                if args.len() >= 3 {
-                    Some(Command::Set {
-                        key: args[1].clone(),
-                        value: args[2].clone(),
-                    })
-                } else {
-                    Some(Command::UsageError {
-                        message: "'set' requires a key and a value.".to_string(),
-                        usage: "set <key> <value>".to_string(),
-                    })
-                }
-            }
-            "delete" | "del" => {
-                if args.len() >= 2 {
-                    Some(Command::Delete {
-                        key: args[1].clone(),
-                    })
-                } else {
-                    Some(Command::UsageError {
-                        message: "'delete' requires a key argument.".to_string(),
-                        usage: "delete <key>".to_string(),
-                    })
-                }
-            }
+            "get" => Some(parse_fixed_arity_command(
+                &args,
+                2,
+                "Invalid arguments for 'get'.",
+                "get <key>",
+                |args| Command::Get {
+                    key: args[1].clone(),
+                },
+            )),
+            "set" => Some(parse_fixed_arity_command(
+                &args,
+                3,
+                "Invalid arguments for 'set'.",
+                "set <key> <value>",
+                |args| Command::Set {
+                    key: args[1].clone(),
+                    value: args[2].clone(),
+                },
+            )),
+            "delete" | "del" => Some(parse_fixed_arity_command(
+                &args,
+                2,
+                "Invalid arguments for 'delete'.",
+                "delete <key>",
+                |args| Command::Delete {
+                    key: args[1].clone(),
+                },
+            )),
             "search" => {
                 if args.len() == 1 {
-                    Some(Command::UsageError {
-                        message: "'search' requires a pattern argument.".to_string(),
-                        usage: "search <pattern>  |  search regex <pattern>".to_string(),
-                    })
+                    Some(usage_error(
+                        "'search' requires a pattern argument.",
+                        "search <pattern>  |  search regex <pattern>",
+                    ))
                 } else if args.len() == 2 {
                     Some(Command::Search {
                         pattern: args[1].clone(),
@@ -204,10 +222,10 @@ impl Command {
                         is_regex: true,
                     })
                 } else {
-                    Some(Command::UsageError {
-                        message: "Invalid arguments for 'search'.".to_string(),
-                        usage: "search <pattern>  |  search regex <pattern>".to_string(),
-                    })
+                    Some(usage_error(
+                        "Invalid arguments for 'search'.",
+                        "search <pattern>  |  search regex <pattern>",
+                    ))
                 }
             }
             "trees" => {
@@ -233,21 +251,36 @@ impl Command {
                     })
                 }
             }
-            "select" => {
-                if args.len() >= 2 {
-                    Some(Command::Select {
-                        tree: args[1].clone(),
-                    })
-                } else {
-                    Some(Command::UsageError {
-                        message: "'select' requires a tree name.".to_string(),
-                        usage: "select <tree>".to_string(),
-                    })
-                }
-            }
-            "unselect" => Some(Command::Unselect),
-            "help" | "?" => Some(Command::Help),
-            "exit" | "quit" | "q" => Some(Command::Exit),
+            "select" => Some(parse_fixed_arity_command(
+                &args,
+                2,
+                "Invalid arguments for 'select'.",
+                "select <tree>",
+                |args| Command::Select {
+                    tree: args[1].clone(),
+                },
+            )),
+            "unselect" => Some(parse_fixed_arity_command(
+                &args,
+                1,
+                "Invalid arguments for 'unselect'.",
+                "unselect",
+                |_| Command::Unselect,
+            )),
+            "help" | "?" => Some(parse_fixed_arity_command(
+                &args,
+                1,
+                "Invalid arguments for 'help'.",
+                "help | ?",
+                |_| Command::Help,
+            )),
+            "exit" | "quit" | "q" => Some(parse_fixed_arity_command(
+                &args,
+                1,
+                "Invalid arguments for 'exit'.",
+                "exit | quit | q",
+                |_| Command::Exit,
+            )),
             _ => None,
         }
     }
@@ -748,6 +781,15 @@ fn print_help() {
         "\"He said \\\"hello\\\"\"".bright_yellow(),
         "He said \"hello\"".bright_white()
     );
+    println!(
+        "  {} Keys accept printable UTF-8 text; quote them if they contain spaces",
+        "•".bright_blue()
+    );
+    println!(
+        "  {} Binary keys remain readable via {} using their trailing hex digits",
+        "•".bright_blue(),
+        "get <hex-suffix>".bright_yellow()
+    );
     println!("  {} Keys are auto-completed with TAB", "•".bright_blue());
     println!();
 }
@@ -760,6 +802,9 @@ mod tests {
     fn test_command_parse_count() {
         let cmd = Command::parse("count");
         assert!(matches!(cmd, Some(Command::Count)));
+
+        let cmd = Command::parse("count extra");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -787,6 +832,9 @@ mod tests {
 
         let cmd = Command::parse("get \"key with spaces\"");
         assert!(matches!(cmd, Some(Command::Get { key }) if key == "key with spaces"));
+
+        let cmd = Command::parse("get test_key extra");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -812,6 +860,9 @@ mod tests {
 
         let cmd = Command::parse("set");
         assert!(matches!(cmd, Some(Command::UsageError { .. })));
+
+        let cmd = Command::parse("set key value extra");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -827,6 +878,9 @@ mod tests {
 
         // Test incomplete delete command
         let cmd = Command::parse("delete");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
+
+        let cmd = Command::parse("delete test_key extra");
         assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
@@ -850,6 +904,9 @@ mod tests {
 
         let cmd = Command::parse("?");
         assert!(matches!(cmd, Some(Command::Help)));
+
+        let cmd = Command::parse("help extra");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -862,6 +919,9 @@ mod tests {
 
         let cmd = Command::parse("q");
         assert!(matches!(cmd, Some(Command::Exit)));
+
+        let cmd = Command::parse("exit now");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -899,12 +959,14 @@ mod tests {
         assert!(validate_key("app:settings").is_ok());
         assert!(validate_key("path/to/key").is_ok());
         assert!(validate_key("key with spaces").is_ok());
+        assert!(validate_key("config_日本").is_ok());
+        assert!(validate_key("café").is_ok());
+        assert!(validate_key("key@still-valid").is_ok());
 
         // Invalid keys
         assert!(validate_key("").is_err());
-        assert!(validate_key("key@invalid").is_err());
-        assert!(validate_key("key#invalid").is_err());
-        assert!(validate_key("key$invalid").is_err());
+        assert!(validate_key("line\nbreak").is_err());
+        assert!(validate_key("tab\tkey").is_err());
 
         // Too long key
         let long_key = "a".repeat(600);
@@ -968,6 +1030,9 @@ mod tests {
         // Test incomplete select command
         let cmd = Command::parse("select");
         assert!(matches!(cmd, Some(Command::UsageError { .. })));
+
+        let cmd = Command::parse("select my_tree extra");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]
@@ -977,7 +1042,7 @@ mod tests {
 
         // Unselect doesn't take arguments
         let cmd = Command::parse("unselect extra_arg");
-        assert!(matches!(cmd, Some(Command::Unselect)));
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]

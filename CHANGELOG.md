@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Library-facing database and validator APIs now return `SledoViewError` directly instead of erasing errors into `anyhow` through the core layers
+- CLI key validation now accepts printable UTF-8 text keys while keeping the existing key length cap as a CLI policy
+- Known REPL commands now reject extra trailing arguments instead of silently ignoring them
+
+### Fixed
+- Startup lock handling no longer depends on downcasting `anyhow::Error` to recover `DatabaseLocked`
+- UTF-8 text keys such as `config_日本` and `café` can now be written through the CLI consistently with the existing read path
+
 ## [1.1.0] - 2026-02-20
 
 ### Added

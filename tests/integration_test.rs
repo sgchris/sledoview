@@ -3,6 +3,7 @@ mod common;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use sledoview::db::SledViewer;
+use sledoview::error::SledoViewError;
 use sledoview::validator::DatabaseValidator;
 
 #[test]
@@ -25,7 +26,10 @@ fn test_validator_open_valid_database() {
 #[test]
 fn test_validator_nonexistent_database() {
     let validator = DatabaseValidator::new(std::path::Path::new("/nonexistent/path"));
-    assert!(validator.validate().is_err());
+    assert!(matches!(
+        validator.validate(),
+        Err(SledoViewError::DatabaseNotFound { .. })
+    ));
 }
 
 #[test]
@@ -209,6 +213,41 @@ fn test_sled_viewer_set_with_quotes() {
 
     let key_info = viewer.get_key("quote_key").unwrap();
     assert_eq!(key_info.value, "value with \"quotes\"");
+}
+
+#[test]
+fn test_sled_viewer_set_and_get_utf8_keys() {
+    let temp_dir = common::create_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+
+    assert!(viewer.set_key("config_日本", "値").is_ok());
+    assert!(viewer.set_key("café", "au lait").is_ok());
+
+    let japanese = viewer.get_key("config_日本").unwrap();
+    assert_eq!(japanese.key, "config_日本");
+    assert_eq!(japanese.value, "値");
+
+    let accented = viewer.get_key("café").unwrap();
+    assert_eq!(accented.key, "café");
+    assert_eq!(accented.value, "au lait");
+}
+
+#[test]
+fn test_sled_viewer_finds_binary_key_by_hex_suffix() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    {
+        let db = sled::open(temp_dir.path()).unwrap();
+        db.insert([0x00_u8, 0xFF, 0x10, 0xAB], b"binary_value")
+            .unwrap();
+        db.flush().unwrap();
+    }
+
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+    let info = viewer.find_key_by_hex_suffix("10AB").unwrap().unwrap();
+
+    assert_eq!(info.key, "00FF10AB");
+    assert_eq!(info.value, "binary_value");
+    assert!(info.is_utf8);
 }
 
 #[test]

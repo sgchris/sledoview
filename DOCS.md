@@ -70,6 +70,10 @@ These commands operate on the currently selected tree.
 | `set <key> <value>` | Create a new key or update an existing one | `set user_001 "John Doe"` |
 | `delete <key>` | Delete a key-value pair | `delete user_001` |
 
+CLI keys accept printable UTF-8 text, including non-ASCII characters such as `config_日本` or `café`.
+If a database already contains truly binary keys, SledoView can still read them with `get <hex-suffix>` by matching the trailing uppercase hex digits shown in key listings.
+Binary keys remain read-only through the CLI.
+
 ### 🔍 Searching & Analytics
 | Command | Description | Example |
 |---------|-------------|---------|
@@ -82,6 +86,8 @@ These commands operate on the currently selected tree.
 |---------|-------------|---------|
 | `help` | Display the help menu with all available commands | `help` |
 | `exit` | Safely close the database and exit SledoView | `exit` |
+
+Known commands now validate their argument counts strictly. Extra trailing arguments are treated as usage errors instead of being ignored.
 
 ---
 *Tip: SledoView supports colored terminal output and tab-completion to make your database exploration as smooth as possible!*

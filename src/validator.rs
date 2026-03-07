@@ -1,6 +1,5 @@
 use crate::db::SledViewer;
-use crate::error::SledoViewError;
-use anyhow::Result;
+use crate::error::{Result, SledoViewError};
 use colored::*;
 use std::fs;
 use std::path::Path;
@@ -40,8 +39,7 @@ impl<'a> DatabaseValidator<'a> {
         if !self.path.exists() {
             return Err(SledoViewError::DatabaseNotFound {
                 path: self.path.display().to_string(),
-            }
-            .into());
+            });
         }
         Ok(())
     }
@@ -56,8 +54,7 @@ impl<'a> DatabaseValidator<'a> {
                         Ok(_) => Ok(()),
                         Err(_) => Err(SledoViewError::DatabaseNotReadable {
                             path: self.path.display().to_string(),
-                        }
-                        .into()),
+                        }),
                     }
                 } else {
                     Ok(())
@@ -65,8 +62,7 @@ impl<'a> DatabaseValidator<'a> {
             }
             Err(_) => Err(SledoViewError::PermissionDenied {
                 path: self.path.display().to_string(),
-            }
-            .into()),
+            }),
         }
     }
 
@@ -74,8 +70,7 @@ impl<'a> DatabaseValidator<'a> {
         if !self.path.is_dir() {
             return Err(SledoViewError::InvalidSledDatabase {
                 path: self.path.display().to_string(),
-            }
-            .into());
+            });
         }
         Ok(())
     }
@@ -104,8 +99,7 @@ impl<'a> DatabaseValidator<'a> {
             if !has_sled_files {
                 return Err(SledoViewError::InvalidSledDatabase {
                     path: self.path.display().to_string(),
-                }
-                .into());
+                });
             }
         }
 

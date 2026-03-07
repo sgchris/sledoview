@@ -53,28 +53,26 @@ fn main() -> Result<()> {
 }
 
 /// Print a user-friendly error message for startup failures, then exit.
-fn startup_error_and_exit(err: anyhow::Error) -> ! {
-    // Check for the DatabaseLocked variant specifically.
-    let is_locked = err
-        .downcast_ref::<SledoViewError>()
-        .is_some_and(|e| matches!(e, SledoViewError::DatabaseLocked { .. }));
-
-    if is_locked {
-        eprintln!(
-            "\n{} {}",
-            "✗  Database is locked.".bright_red().bold(),
-            "Another process has it open.".red()
-        );
-        eprintln!(
-            "   {}",
-            "Close the other application and try again.".yellow()
-        );
-    } else {
-        eprintln!(
-            "\n{} {}",
-            "✗  Failed to open database:".bright_red().bold(),
-            err.to_string().red()
-        );
+fn startup_error_and_exit(err: SledoViewError) -> ! {
+    match err {
+        SledoViewError::DatabaseLocked { .. } => {
+            eprintln!(
+                "\n{} {}",
+                "✗  Database is locked.".bright_red().bold(),
+                "Another process has it open.".red()
+            );
+            eprintln!(
+                "   {}",
+                "Close the other application and try again.".yellow()
+            );
+        }
+        other => {
+            eprintln!(
+                "\n{} {}",
+                "✗  Failed to open database:".bright_red().bold(),
+                other.to_string().red()
+            );
+        }
     }
 
     std::process::exit(1);

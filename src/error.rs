@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+pub type Result<T> = std::result::Result<T, SledoViewError>;
+
 #[derive(Error, Debug)]
 pub enum SledoViewError {
     #[error("Database file not found: {path}")]
