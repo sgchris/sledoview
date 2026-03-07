@@ -7,17 +7,11 @@ pub enum SledoViewError {
     #[error("Database file not found: {path}")]
     DatabaseNotFound { path: String },
 
-    #[error("Database file is not readable: {path}")]
-    DatabaseNotReadable { path: String },
-
     #[error("File is not a SLED database: {path}")]
     InvalidSledDatabase { path: String },
 
     #[error("Database is locked by another process: {path}")]
     DatabaseLocked { path: String },
-
-    #[error("Permission denied accessing database: {path}")]
-    PermissionDenied { path: String },
 
     #[error("Invalid regex pattern: {pattern}")]
     InvalidRegex { pattern: String },

@@ -1,62 +1,10 @@
+use crate::command_input::parse_line;
 use crate::db::{format_key_bytes, KeyInfo, SledViewer};
-use anyhow::Result;
+use crate::error::Result;
 use colored::*;
 
-/// Parse quoted arguments from a command line, handling escaped quotes
-fn parse_quoted_args(input: &str) -> Vec<String> {
-    let mut args = Vec::new();
-    let mut current_arg = String::new();
-    let mut in_quotes = false;
-    let mut escape_next = false;
-
-    for ch in input.chars() {
-        if escape_next {
-            current_arg.push(ch);
-            escape_next = false;
-            continue;
-        }
-        match ch {
-            '\\' => {
-                escape_next = true;
-            }
-            '"' => {
-                if in_quotes {
-                    // End of quoted string - always push even if empty
-                    in_quotes = false;
-                    args.push(current_arg.clone());
-                    current_arg.clear();
-                } else {
-                    // Start of quoted string
-                    in_quotes = true;
-                    if !current_arg.is_empty() {
-                        args.push(current_arg.clone());
-                        current_arg.clear();
-                    }
-                }
-            }
-            ' ' | '\t' => {
-                if in_quotes {
-                    current_arg.push(ch);
-                } else if !current_arg.is_empty() {
-                    args.push(current_arg.clone());
-                    current_arg.clear();
-                }
-            }
-            _ => {
-                current_arg.push(ch);
-            }
-        }
-    }
-
-    if !current_arg.is_empty() {
-        args.push(current_arg);
-    }
-
-    args
-}
-
 /// Validate that a CLI key is non-empty, reasonably sized, and terminal-safe.
-fn validate_key(key: &str) -> Result<(), String> {
+fn validate_key(key: &str) -> std::result::Result<(), String> {
     if key.is_empty() {
         return Err("Key cannot be empty".to_string());
     }
@@ -140,7 +88,15 @@ pub enum Command {
 impl Command {
     #[must_use]
     pub fn parse(input: &str) -> Option<Command> {
-        let args = parse_quoted_args(input);
+        let args = match parse_line(input) {
+            Ok(parsed) => parsed.args,
+            Err(error) => {
+                return Some(usage_error(
+                    &error.to_string(),
+                    "See 'help' for command syntax.",
+                ));
+            }
+        };
 
         if args.is_empty() {
             return None;
@@ -927,28 +883,44 @@ mod tests {
     #[test]
     fn test_parse_quoted_args() {
         // Simple unquoted arguments
-        let args = parse_quoted_args("set key value");
+        let args = parse_line("set key value").unwrap().args;
         assert_eq!(args, vec!["set", "key", "value"]);
 
         // Quoted arguments with spaces
-        let args = parse_quoted_args("set \"key with spaces\" \"value with spaces\"");
+        let args = parse_line("set \"key with spaces\" \"value with spaces\"")
+            .unwrap()
+            .args;
         assert_eq!(args, vec!["set", "key with spaces", "value with spaces"]);
 
         // Escaped quotes
-        let args = parse_quoted_args("set key \"value with \\\"quotes\\\"\"");
+        let args = parse_line("set key \"value with \\\"quotes\\\"\"")
+            .unwrap()
+            .args;
         assert_eq!(args, vec!["set", "key", "value with \"quotes\""]);
 
         // Mixed quoted and unquoted
-        let args = parse_quoted_args("set \"key name\" simple_value");
+        let args = parse_line("set \"key name\" simple_value").unwrap().args;
         assert_eq!(args, vec!["set", "key name", "simple_value"]);
 
         // Empty quotes
-        let args = parse_quoted_args("set key \"\"");
+        let args = parse_line("set key \"\"").unwrap().args;
         assert_eq!(args, vec!["set", "key", ""]);
 
         // Single word in quotes
-        let args = parse_quoted_args("get \"key\"");
+        let args = parse_line("get \"key\"").unwrap().args;
         assert_eq!(args, vec!["get", "key"]);
+    }
+
+    #[test]
+    fn test_command_parse_rejects_unterminated_quote() {
+        let cmd = Command::parse("set \"unterminated");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
+    }
+
+    #[test]
+    fn test_command_parse_rejects_trailing_escape() {
+        let cmd = Command::parse("set key value\\");
+        assert!(matches!(cmd, Some(Command::UsageError { .. })));
     }
 
     #[test]

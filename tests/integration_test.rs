@@ -40,6 +40,16 @@ fn test_validator_file_instead_of_directory() {
 }
 
 #[test]
+fn test_validator_open_file_instead_of_directory() {
+    let temp_file = tempfile::NamedTempFile::new().unwrap();
+    let validator = DatabaseValidator::new(temp_file.path());
+    assert!(matches!(
+        validator.open(),
+        Err(SledoViewError::InvalidSledDatabase { .. })
+    ));
+}
+
+#[test]
 fn test_sled_viewer_count() {
     let temp_dir = common::create_test_db();
     let viewer = SledViewer::new(temp_dir.path()).unwrap();

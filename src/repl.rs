@@ -1,6 +1,7 @@
 use crate::commands::Command;
+use crate::command_input::{command_names, completion_request, CompletionKind};
 use crate::db::SledViewer;
-use anyhow::Result;
+use crate::error::Result;
 use colored::*;
 use rustyline::error::ReadlineError;
 use rustyline::history::MemHistory;
@@ -23,55 +24,29 @@ impl SledCompleter {
     }
 
     fn find_completions(&self, line: &str) -> Vec<String> {
-        let trimmed = line.trim_end_matches(|ch| ch == ' ' || ch == '\t');
-        let ends_with_whitespace = trimmed.len() != line.len();
-        let parts: Vec<&str> = trimmed.split_whitespace().collect();
-
-        let Some(command) = parts.first().map(|command| command.to_lowercase()) else {
-            return Self::command_completions(line);
+        let Some(request) = completion_request(line) else {
+            return Vec::new();
         };
 
-        if let Some(prefix) = key_completion_prefix(&command, &parts, ends_with_whitespace) {
-            return self
+        match request.kind {
+            CompletionKind::Command => Self::command_completions(&request.prefix),
+            CompletionKind::Key => self
                 .viewer
                 .borrow()
-                .complete_keys(prefix, self.limit)
-                .unwrap_or_default();
-        }
-
-        if let Some(prefix) = tree_completion_prefix(&command, &parts, ends_with_whitespace) {
-            return self
+                .complete_keys(&request.prefix, self.limit)
+                .unwrap_or_default(),
+            CompletionKind::Tree => self
                 .viewer
                 .borrow()
-                .complete_trees(prefix, self.limit)
-                .unwrap_or_default();
+                .complete_trees(&request.prefix, self.limit)
+                .unwrap_or_default(),
         }
-
-        if parts.len() <= 1 && !ends_with_whitespace {
-            return Self::command_completions(parts[0]);
-        }
-
-        Vec::new()
     }
 
     fn command_completions(prefix: &str) -> Vec<String> {
-        [
-            "count",
-            "list",
-            "ls",
-            "get",
-            "set",
-            "delete",
-            "del",
-            "search",
-            "trees",
-            "select",
-            "unselect",
-            "help",
-            "exit",
-            "quit",
-        ]
-        .into_iter()
+        command_names()
+        .iter()
+        .copied()
         .filter(|command| command.starts_with(prefix))
         .map(str::to_string)
         .collect()
@@ -339,60 +314,5 @@ impl Repl {
                 }
             }
         }
-    }
-}
-
-fn key_completion_prefix<'a>(
-    command: &str,
-    parts: &[&'a str],
-    ends_with_whitespace: bool,
-) -> Option<&'a str> {
-    match command {
-        "get" | "delete" | "del" => completion_argument_prefix(parts, ends_with_whitespace),
-        "set" => {
-            if parts.len() == 1 && ends_with_whitespace {
-                Some("")
-            } else if parts.len() == 2 && !ends_with_whitespace {
-                Some(parts[1])
-            } else {
-                None
-            }
-        }
-        "list" | "ls" | "search" => {
-            if parts.get(1).is_some_and(|arg| *arg == "regex") {
-                None
-            } else {
-                completion_argument_prefix(parts, ends_with_whitespace)
-            }
-        }
-        _ => None,
-    }
-}
-
-fn tree_completion_prefix<'a>(
-    command: &str,
-    parts: &[&'a str],
-    ends_with_whitespace: bool,
-) -> Option<&'a str> {
-    match command {
-        "select" => completion_argument_prefix(parts, ends_with_whitespace),
-        "trees" => {
-            if parts.get(1).is_some_and(|arg| *arg == "regex") {
-                None
-            } else {
-                completion_argument_prefix(parts, ends_with_whitespace)
-            }
-        }
-        _ => None,
-    }
-}
-
-fn completion_argument_prefix<'a>(parts: &[&'a str], ends_with_whitespace: bool) -> Option<&'a str> {
-    if parts.len() == 1 && ends_with_whitespace {
-        Some("")
-    } else if parts.len() == 2 && !ends_with_whitespace {
-        Some(parts[1])
-    } else {
-        None
     }
 }

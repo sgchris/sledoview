@@ -1,27 +1,21 @@
 mod cli;
+mod command_input;
 mod commands;
 mod db;
 mod error;
 mod repl;
 mod validator;
 
-use anyhow::Result;
 use clap::Parser;
 use colored::*;
 
 use cli::Args;
-use error::SledoViewError;
+use error::{Result, SledoViewError};
 use repl::Repl;
 use validator::DatabaseValidator;
 
 fn main() -> Result<()> {
     let args = Args::parse();
-
-    println!(
-        "{}",
-        "SledoView - SLED Database Viewer".bright_cyan().bold()
-    );
-    println!("{}", "═".repeat(35).bright_cyan());
 
     // Special case for creating test data
     if args.database_path.to_string_lossy() == "create-test" {
@@ -34,6 +28,12 @@ fn main() -> Result<()> {
         Ok(v) => v,
         Err(e) => startup_error_and_exit(e),
     };
+
+    println!(
+        "{}",
+        "SledoView - SLED Database Viewer".bright_cyan().bold()
+    );
+    println!("{}", "═".repeat(35).bright_cyan());
 
     println!(
         "{} {}",
@@ -54,25 +54,22 @@ fn main() -> Result<()> {
 
 /// Print a user-friendly error message for startup failures, then exit.
 fn startup_error_and_exit(err: SledoViewError) -> ! {
-    match err {
-        SledoViewError::DatabaseLocked { .. } => {
-            eprintln!(
-                "\n{} {}",
-                "✗  Database is locked.".bright_red().bold(),
-                "Another process has it open.".red()
-            );
-            eprintln!(
-                "   {}",
-                "Close the other application and try again.".yellow()
-            );
-        }
-        other => {
-            eprintln!(
-                "\n{} {}",
-                "✗  Failed to open database:".bright_red().bold(),
-                other.to_string().red()
-            );
-        }
+    if matches!(err, SledoViewError::DatabaseLocked { .. }) {
+        eprintln!(
+            "\n{} {}",
+            "✗  Database is locked.".bright_red().bold(),
+            "Another process has it open.".red()
+        );
+        eprintln!(
+            "   {}",
+            "Close the other application and try again.".yellow()
+        );
+    } else {
+        eprintln!(
+            "\n{} {}",
+            "✗  Failed to open database:".bright_red().bold(),
+            err.to_string().red()
+        );
     }
 
     std::process::exit(1);
