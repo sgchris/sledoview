@@ -10,16 +10,21 @@ pub struct SledViewer {
 
 impl SledViewer {
     pub fn new(path: &Path) -> Result<Self> {
-        let db = sled::open(path).map_err(|e| {
-            // Sled lock errors are easy to miss; surface a clear message.
-            if is_sled_lock_error(&e) {
-                SledoViewError::DatabaseLocked {
+        let db = match sled::open(path) {
+            Ok(n) => n,
+            Err(err) if is_sled_lock_error(&err) => {
+                return Err(SledoViewError::DatabaseLocked {
                     path: path.display().to_string(),
-                }
-            } else {
-                SledoViewError::from(e)
+                })
             }
-        })?;
+            Err(sled::Error::Unsupported(s)) if s.contains("use_compression") => {
+                sled::Config::new()
+                    .path(path)
+                    .use_compression(true)
+                    .open()?
+            }
+            Err(err) => return Err(err.into()),
+        };
         Ok(Self {
             db,
             selected_tree: None,

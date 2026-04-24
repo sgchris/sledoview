@@ -25,6 +25,10 @@ path = "src/main.rs"
 name = "sledoview"
 path = "src/lib.rs"
 
+[features]
+default = ["compression"]
+compression = ["sled/compression"]
+
 [dependencies]
 sled = "0.34"
 clap = { version = "4", features = ["derive"] }
