@@ -1,5 +1,5 @@
-use crate::commands::Command;
 use crate::command_input::{command_names, completion_request, CompletionKind};
+use crate::commands::Command;
 use crate::db::SledViewer;
 use crate::error::Result;
 use colored::*;
@@ -45,11 +45,11 @@ impl SledCompleter {
 
     fn command_completions(prefix: &str) -> Vec<String> {
         command_names()
-        .iter()
-        .copied()
-        .filter(|command| command.starts_with(prefix))
-        .map(str::to_string)
-        .collect()
+            .iter()
+            .copied()
+            .filter(|command| command.starts_with(prefix))
+            .map(str::to_string)
+            .collect()
     }
 }
 
@@ -64,7 +64,7 @@ impl rustyline::completion::Completer for SledCompleter {
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
         let line_up_to_cursor = &line[..pos];
         let start = line_up_to_cursor
-            .rfind(|ch: char| ch == ' ' || ch == '\t')
+            .rfind([' ', '\t'])
             .map_or(0, |index| index + 1);
         let candidates = self
             .find_completions(line_up_to_cursor)
@@ -123,7 +123,7 @@ impl Repl {
 
     fn should_show_completion_hint(&self, line: &str) -> bool {
         let prefix = line
-            .trim_end_matches(|ch| ch == ' ' || ch == '\t')
+            .trim_end_matches([' ', '\t'])
             .split_whitespace()
             .last()
             .unwrap_or("");
@@ -139,20 +139,7 @@ impl Repl {
 
     #[allow(clippy::unnecessary_wraps)] // avoid breaking public API
     pub fn run(&mut self) -> Result<()> {
-        println!();
-        println!(
-            "{}",
-            "Interactive SLED Database Client".bright_cyan().bold()
-        );
-        println!(
-            "{}",
-            "Type 'help' for available commands or 'exit' to quit.".bright_black()
-        );
-        println!(
-            "{}",
-            "Use TAB for completion, type partial keys and TAB to auto-complete!".bright_black()
-        );
-        println!();
+        print_intro();
 
         loop {
             // Create prompt that shows selected tree
@@ -164,8 +151,8 @@ impl Repl {
             let readline = self.editor.readline(&prompt);
 
             match readline {
-                Ok(line) => {
-                    let line = line.trim();
+                Ok(line_raw) => {
+                    let line = line_raw.trim();
                     if line.is_empty() {
                         continue;
                     }
@@ -315,4 +302,21 @@ impl Repl {
             }
         }
     }
+}
+
+fn print_intro() {
+    println!();
+    println!(
+        "{}",
+        "Interactive SLED Database Client".bright_cyan().bold()
+    );
+    println!(
+        "{}",
+        "Type 'help' for available commands or 'exit' to quit.".bright_black()
+    );
+    println!(
+        "{}",
+        "Use TAB for completion, type partial keys and TAB to auto-complete!".bright_black()
+    );
+    println!();
 }

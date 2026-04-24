@@ -215,7 +215,7 @@ impl SledViewer {
             if std::str::from_utf8(key).is_ok() {
                 return None;
             }
-            let hex: String = key.iter().map(|b| format!("{:02X}", b)).collect();
+            let hex: String = key.iter().map(|b| format!("{b:02X}")).collect();
             if hex.ends_with(&suffix_upper) {
                 let is_utf8 = std::str::from_utf8(value).is_ok();
                 let value_str = String::from_utf8_lossy(value).to_string();
@@ -366,11 +366,11 @@ impl SledViewer {
 
     /// Get a tree by name
     fn get_tree(&self, name: &str) -> Result<Tree> {
-        self.db.open_tree(name.as_bytes()).map_err(|e| {
-            SledoViewError::TreeOperation {
+        self.db
+            .open_tree(name.as_bytes())
+            .map_err(|e| SledoViewError::TreeOperation {
                 message: format!("Failed to open tree '{name}': {e}"),
-            }
-        })
+            })
     }
 
     fn tree_exists(&self, tree_name: &str) -> bool {
@@ -440,13 +440,20 @@ pub fn format_key_bytes_full(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02X}")).collect()
 }
 
-/// Returns `true` when a sled error indicates the database lock is held by
-/// another process.  Mirrors the logic in `validator::is_lock_error`.
+/// Returns `true` when a sled error looks like a lock/contention error.
+///
+/// Sled serialises database access with a lock file. When another process
+/// already holds that lock the underlying OS error varies by platform:
+/// - POSIX: `EWOULDBLOCK` / `EAGAIN` → `ErrorKind::WouldBlock`
+/// - Windows: `ERROR_LOCK_VIOLATION` (33) or `ERROR_SHARING_VIOLATION` (32)
+///   → `ErrorKind::Other`
+/// - Fallback: the error message contains the word "lock".
 fn is_sled_lock_error(err: &sled::Error) -> bool {
     if let sled::Error::Io(io_err) = err {
         match io_err.kind() {
             std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::WouldBlock => return true,
             std::io::ErrorKind::Other => {
+                // Windows ERROR_LOCK_VIOLATION = 33, ERROR_SHARING_VIOLATION = 32
                 if let Some(os_code) = io_err.raw_os_error() {
                     if os_code == 32 || os_code == 33 {
                         return true;
@@ -455,10 +462,12 @@ fn is_sled_lock_error(err: &sled::Error) -> bool {
             }
             _ => {}
         }
+        // Fallback: inspect the message text
         if io_err.to_string().to_lowercase().contains("lock") {
             return true;
         }
     }
+    // Also check the top-level sled error message
     err.to_string().to_lowercase().contains("lock")
 }
 
@@ -742,7 +751,10 @@ mod tests {
 
         let matches = viewer.complete_keys("app", 2).unwrap();
 
-        assert_eq!(matches, vec!["apple".to_string(), "application".to_string()]);
+        assert_eq!(
+            matches,
+            vec!["apple".to_string(), "application".to_string()]
+        );
     }
 
     #[test]
