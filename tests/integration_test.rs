@@ -70,7 +70,7 @@ fn test_sled_viewer_list_keys_all() {
 #[test]
 #[cfg(feature = "compression")]
 fn test_sled_viewer_list_keys_all_compressed() {
-    let temp_dir = common::create_compressed_test_db();
+    let temp_dir = common::create_test_db_with_compression(true);
     let viewer = SledViewer::new(temp_dir.path()).unwrap();
     let keys = viewer.list_keys("*", false).unwrap();
     assert_eq!(keys.len(), 10);
@@ -192,7 +192,7 @@ fn test_sled_viewer_set_key() {
 #[test]
 #[cfg(feature = "compression")]
 fn test_sled_viewer_set_key_compressed() {
-    let temp_dir = common::create_compressed_test_db();
+    let temp_dir = common::create_test_db_with_compression(true);
     let viewer = SledViewer::new(temp_dir.path()).unwrap();
 
     // Test setting a new key

@@ -309,7 +309,7 @@ impl Command {
                 print!("\x1B[2J\x1B[3J\x1B[H");
                 // Flush the buffer to ensure the command is immediately sent.
                 let mut stdout = std::io::stdout();
-                std::io::Write::flush(&mut stdout).unwrap();
+                _ = std::io::Write::flush(&mut stdout);
             }
         }
         Ok(())
