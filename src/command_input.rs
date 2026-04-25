@@ -51,7 +51,7 @@ enum CommandKind {
 pub fn command_names() -> &'static [&'static str] {
     &[
         "count", "list", "ls", "get", "set", "delete", "del", "search", "trees", "select",
-        "unselect", "help", "exit", "quit", "q", "?",
+        "unselect", "clear", "help", "exit", "quit", "q", "?",
     ]
 }
 
