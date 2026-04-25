@@ -47,24 +47,11 @@ enum CommandKind {
     Exit,
 }
 
+#[must_use]
 pub fn command_names() -> &'static [&'static str] {
     &[
-        "count",
-        "list",
-        "ls",
-        "get",
-        "set",
-        "delete",
-        "del",
-        "search",
-        "trees",
-        "select",
-        "unselect",
-        "help",
-        "exit",
-        "quit",
-        "q",
-        "?",
+        "count", "list", "ls", "get", "set", "delete", "del", "search", "trees", "select",
+        "unselect", "clear", "help", "exit", "quit", "q", "?",
     ]
 }
 
@@ -128,6 +115,7 @@ pub fn parse_line(input: &str) -> std::result::Result<ParsedLine, ParseInputErro
     })
 }
 
+#[must_use]
 pub fn completion_request(input: &str) -> Option<CompletionRequest> {
     let parsed = parse_line(input).ok()?;
 
@@ -146,13 +134,7 @@ pub fn completion_request(input: &str) -> Option<CompletionRequest> {
     }
 
     let command = classify_command(&parsed.args[0])?;
-    match completion_target(command, &parsed.args, parsed.ends_with_whitespace) {
-        Some((kind, prefix)) => Some(CompletionRequest {
-            kind,
-            prefix: prefix.to_string(),
-        }),
-        None => None,
-    }
+    completion_target(command, &parsed.args, parsed.ends_with_whitespace)
 }
 
 fn classify_command(name: &str) -> Option<CommandKind> {
@@ -172,40 +154,51 @@ fn classify_command(name: &str) -> Option<CommandKind> {
     }
 }
 
-fn completion_target<'a>(
+fn completion_target(
     command: CommandKind,
-    args: &'a [String],
+    args: &[String],
     ends_with_whitespace: bool,
-) -> Option<(CompletionKind, &'a str)> {
+) -> Option<CompletionRequest> {
     match command {
-        CommandKind::Get | CommandKind::Delete => positional_completion(args, ends_with_whitespace, CompletionKind::Key),
-        CommandKind::Set => positional_completion(args, ends_with_whitespace, CompletionKind::Key),
-        CommandKind::Select => positional_completion(args, ends_with_whitespace, CompletionKind::Tree),
-        CommandKind::List | CommandKind::Search => pattern_completion(args, ends_with_whitespace, CompletionKind::Key),
+        CommandKind::Get | CommandKind::Delete | CommandKind::Set => {
+            positional_completion(args, ends_with_whitespace, CompletionKind::Key)
+        }
+        CommandKind::Select => {
+            positional_completion(args, ends_with_whitespace, CompletionKind::Tree)
+        }
+        CommandKind::List | CommandKind::Search => {
+            pattern_completion(args, ends_with_whitespace, CompletionKind::Key)
+        }
         CommandKind::Trees => pattern_completion(args, ends_with_whitespace, CompletionKind::Tree),
         CommandKind::Count | CommandKind::Unselect | CommandKind::Help | CommandKind::Exit => None,
     }
 }
 
-fn positional_completion<'a>(
-    args: &'a [String],
+fn positional_completion(
+    args: &[String],
     ends_with_whitespace: bool,
     kind: CompletionKind,
-) -> Option<(CompletionKind, &'a str)> {
+) -> Option<CompletionRequest> {
     if args.len() == 1 && ends_with_whitespace {
-        Some((kind, ""))
+        Some(CompletionRequest {
+            kind,
+            prefix: String::new(),
+        })
     } else if args.len() == 2 && !ends_with_whitespace {
-        Some((kind, &args[1]))
+        Some(CompletionRequest {
+            kind,
+            prefix: args[1].clone(),
+        })
     } else {
         None
     }
 }
 
-fn pattern_completion<'a>(
-    args: &'a [String],
+fn pattern_completion(
+    args: &[String],
     ends_with_whitespace: bool,
     kind: CompletionKind,
-) -> Option<(CompletionKind, &'a str)> {
+) -> Option<CompletionRequest> {
     if args.get(1).is_some_and(|arg| arg == "regex") {
         return None;
     }

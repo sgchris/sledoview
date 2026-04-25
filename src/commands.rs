@@ -83,6 +83,7 @@ pub enum Command {
         message: String,
         usage: String,
     },
+    Clear,
 }
 
 impl Command {
@@ -237,6 +238,13 @@ impl Command {
                 "exit | quit | q",
                 |_| Command::Exit,
             )),
+            "clear" => Some(parse_fixed_arity_command(
+                &args,
+                1,
+                "Invalid arguments for 'clear'.",
+                "clear",
+                |_| Command::Clear,
+            )),
             _ => None,
         }
     }
@@ -277,229 +285,15 @@ impl Command {
                     count.to_string().bright_yellow().bold()
                 );
             }
-            Command::List { pattern, is_regex } => {
-                let result = viewer.list_key_summaries(pattern, *is_regex, 50)?;
-                if result.total_count == 0 {
-                    println!("{}", "No keys found matching the pattern.".yellow());
-                } else {
-                    let total_count = result.total_count;
-
-                    println!(
-                        "{} {} {}",
-                        "Found".bright_blue(),
-                        total_count.to_string().bright_yellow().bold(),
-                        "keys:".bright_blue()
-                    );
-
-                    for (i, item) in result.items.iter().enumerate() {
-                        let key_display = format_key_bytes(&item.key);
-                        let preview = Self::format_value_preview(&item.value, item.is_utf8);
-                        println!(
-                            "  {}: {} = {}",
-                            (i + 1).to_string().bright_black(),
-                            key_display.bright_white(),
-                            preview
-                        );
-                    }
-
-                    if total_count > 50 {
-                        println!(
-                            "{}",
-                            format!("... and {} more keys (showing first 50)", total_count - 50)
-                                .bright_yellow()
-                        );
-                    }
-                }
-            }
-            Command::Get { key } => {
-                // Try exact string key first; if not found and the argument
-                // looks like a hex string, fall back to matching binary keys
-                // by their trailing hex digits (e.g. `get 61F8` finds
-                // the key whose full hex ends with "61F8").
-                let key_result = viewer.get_key(key).or_else(|original_err| {
-                    let looks_like_hex =
-                        !key.is_empty() && key.chars().all(|c| c.is_ascii_hexdigit());
-                    if looks_like_hex {
-                        viewer
-                            .find_key_by_hex_suffix(key)
-                            .and_then(|opt| opt.ok_or(original_err))
-                    } else {
-                        Err(original_err)
-                    }
-                });
-                match key_result {
-                    Ok(info) => print_key_info(&info),
-                    Err(e) => {
-                        println!("{} {}", "Error:".bright_red().bold(), e.to_string().red());
-                    }
-                }
-            }
-            Command::Set { key, value } => {
-                // Validate the key first
-                if let Err(error_msg) = validate_key(key) {
-                    println!("{} {}", "Error:".bright_red().bold(), error_msg.red());
-                    return Ok(());
-                }
-
-                match viewer.set_key(key, value) {
-                    Ok(()) => {
-                        println!(
-                            "{} {} {} {}",
-                            "✓".bright_green().bold(),
-                            "Successfully set key".bright_green(),
-                            key.bright_cyan().bold(),
-                            "with value".bright_green()
-                        );
-                        let truncated_value = truncate_with_ellipsis(value, 50);
-                        println!(
-                            "  {} {}",
-                            "Value:".bright_blue(),
-                            truncated_value.bright_white()
-                        );
-                    }
-                    Err(e) => {
-                        println!(
-                            "{} {} {} {}",
-                            "✗".bright_red().bold(),
-                            "Failed to set key".bright_red(),
-                            key.bright_cyan().bold(),
-                            e.to_string().red()
-                        );
-                    }
-                }
-            }
-            Command::Delete { key } => match viewer.delete_key(key) {
-                Ok(existed) => {
-                    if existed {
-                        println!(
-                            "{} {} {}",
-                            "✓".bright_green().bold(),
-                            "Successfully deleted key".bright_green(),
-                            key.bright_cyan().bold()
-                        );
-                    } else {
-                        println!(
-                            "{} {} {}",
-                            "!".bright_yellow().bold(),
-                            "Key not found:".bright_yellow(),
-                            key.bright_cyan().bold()
-                        );
-                    }
-                }
-                Err(e) => {
-                    println!(
-                        "{} {} {} {}",
-                        "✗".bright_red().bold(),
-                        "Failed to delete key".bright_red(),
-                        key.bright_cyan().bold(),
-                        e.to_string().red()
-                    );
-                }
-            },
-            Command::Search { pattern, is_regex } => {
-                let results = viewer.search_values(pattern, *is_regex)?;
-                if results.is_empty() {
-                    println!("{}", "No values found matching the pattern.".yellow());
-                } else {
-                    let total_count = results.len();
-                    let display_results = if total_count > 50 {
-                        &results[0..50]
-                    } else {
-                        &results[..]
-                    };
-                    println!(
-                        "{} {} {}",
-                        "Found".bright_blue(),
-                        total_count.to_string().bright_yellow().bold(),
-                        "matches:".bright_blue()
-                    );
-                    for (i, pair) in display_results.iter().enumerate() {
-                        println!(
-                            "  {}: {} {} {}",
-                            (i + 1).to_string().bright_black(),
-                            pair.key.bright_cyan().bold(),
-                            "=>".bright_black(),
-                            truncate_value(&pair.value, 100).bright_white()
-                        );
-                    }
-                    if total_count > 50 {
-                        println!(
-                            "{}",
-                            format!(
-                                "... and {} more matches (showing first 50)",
-                                total_count - 50
-                            )
-                            .bright_yellow()
-                        );
-                    }
-                }
-            }
-            Command::Trees { pattern, is_regex } => {
-                let trees = viewer.list_trees(pattern, *is_regex)?;
-                if trees.is_empty() {
-                    println!("{}", "No trees found matching the pattern.".yellow());
-                } else {
-                    let total_count = trees.len();
-                    let display_trees = if total_count > 50 {
-                        &trees[0..50]
-                    } else {
-                        &trees
-                    };
-
-                    println!(
-                        "{} {} {}",
-                        "Found".bright_blue(),
-                        total_count.to_string().bright_yellow().bold(),
-                        "trees:".bright_blue()
-                    );
-
-                    for tree_name in display_trees {
-                        println!("  {}", tree_name.bright_cyan());
-                    }
-
-                    if total_count > 50 {
-                        println!(
-                            "{}",
-                            format!("... and {} more trees (showing first 50)", total_count - 50)
-                                .bright_yellow()
-                        );
-                    }
-                }
-            }
-            Command::Select { tree } => match viewer.select_tree(tree) {
-                Ok(()) => {
-                    println!(
-                        "{} {} {}",
-                        "✓".bright_green().bold(),
-                        "Selected tree:".bright_green(),
-                        tree.bright_cyan().bold()
-                    );
-                }
-                Err(e) => {
-                    println!(
-                        "{} {} {} {}",
-                        "✗".bright_red().bold(),
-                        "Failed to select tree".bright_red(),
-                        tree.bright_cyan().bold(),
-                        e.to_string().red()
-                    );
-                }
-            },
+            Command::List { pattern, is_regex } => cmd_list(viewer, pattern, *is_regex)?,
+            Command::Get { key } => cmd_get(viewer, key),
+            Command::Set { key, value } => cmd_set(viewer, key, value),
+            Command::Delete { key } => cmd_delete(viewer, key),
+            Command::Search { pattern, is_regex } => cmd_search(viewer, pattern, *is_regex)?,
+            Command::Trees { pattern, is_regex } => cmd_trees(viewer, pattern, *is_regex)?,
+            Command::Select { tree } => cmd_select(viewer, tree),
             Command::Unselect => {
-                let was_selected = viewer.unselect_tree()?;
-                if was_selected {
-                    println!(
-                        "{} {}",
-                        "✓".bright_green().bold(),
-                        "Tree unselected. Now working with the default tree.".bright_green()
-                    );
-                } else {
-                    println!(
-                        "{} {}",
-                        "!".bright_yellow().bold(),
-                        "No tree was previously selected.".bright_yellow()
-                    );
-                }
+                cmd_unselect(viewer)?;
             }
             Command::Help => {
                 print_help();
@@ -511,8 +305,253 @@ impl Command {
                 println!("{} {}", "Error:".bright_red().bold(), message.red());
                 println!("  {} {}", "Usage:".bright_blue(), usage.bright_white());
             }
+            Command::Clear => {
+                print!("\x1B[2J\x1B[3J\x1B[H");
+                // Flush the buffer to ensure the command is immediately sent.
+                let mut stdout = std::io::stdout();
+                _ = std::io::Write::flush(&mut stdout);
+            }
         }
         Ok(())
+    }
+}
+
+fn cmd_list(viewer: &mut SledViewer, pattern: &str, is_regex: bool) -> Result<()> {
+    let result = viewer.list_key_summaries(pattern, is_regex, 50)?;
+    if result.total_count == 0 {
+        println!("{}", "No keys found matching the pattern.".yellow());
+    } else {
+        let total_count = result.total_count;
+
+        println!(
+            "{} {} {}",
+            "Found".bright_blue(),
+            total_count.to_string().bright_yellow().bold(),
+            "keys:".bright_blue()
+        );
+
+        for (i, item) in result.items.iter().enumerate() {
+            let key_display = format_key_bytes(&item.key);
+            let preview = Command::format_value_preview(&item.value, item.is_utf8);
+            println!(
+                "  {}: {} = {}",
+                (i + 1).to_string().bright_black(),
+                key_display.bright_white(),
+                preview
+            );
+        }
+
+        if total_count > 50 {
+            println!(
+                "{}",
+                format!("... and {} more keys (showing first 50)", total_count - 50)
+                    .bright_yellow()
+            );
+        }
+    }
+    Ok(())
+}
+
+fn cmd_get(viewer: &mut SledViewer, key: &str) {
+    // Try exact string key first; if not found and the argument
+    // looks like a hex string, fall back to matching binary keys
+    // by their trailing hex digits (e.g. `get 61F8` finds
+    // the key whose full hex ends with "61F8").
+    let key_result = viewer.get_key(key).or_else(|original_err| {
+        let looks_like_hex = !key.is_empty() && key.chars().all(|c| c.is_ascii_hexdigit());
+        if looks_like_hex {
+            viewer
+                .find_key_by_hex_suffix(key)
+                .and_then(|opt| opt.ok_or(original_err))
+        } else {
+            Err(original_err)
+        }
+    });
+    match key_result {
+        Ok(info) => print_key_info(&info),
+        Err(e) => {
+            println!("{} {}", "Error:".bright_red().bold(), e.to_string().red());
+        }
+    }
+}
+
+fn cmd_set(viewer: &mut SledViewer, key: &str, value: &str) {
+    // Validate the key first
+    if let Err(error_msg) = validate_key(key) {
+        println!("{} {}", "Error:".bright_red().bold(), error_msg.red());
+        return;
+    }
+
+    match viewer.set_key(key, value) {
+        Ok(()) => {
+            println!(
+                "{} {} {} {}",
+                "✓".bright_green().bold(),
+                "Successfully set key".bright_green(),
+                key.bright_cyan().bold(),
+                "with value".bright_green()
+            );
+            let truncated_value = truncate_with_ellipsis(value, 50);
+            println!(
+                "  {} {}",
+                "Value:".bright_blue(),
+                truncated_value.bright_white()
+            );
+        }
+        Err(e) => {
+            println!(
+                "{} {} {} {}",
+                "✗".bright_red().bold(),
+                "Failed to set key".bright_red(),
+                key.bright_cyan().bold(),
+                e.to_string().red()
+            );
+        }
+    }
+}
+
+fn cmd_delete(viewer: &mut SledViewer, key: &str) {
+    match viewer.delete_key(key) {
+        Ok(existed) => {
+            if existed {
+                println!(
+                    "{} {} {}",
+                    "✓".bright_green().bold(),
+                    "Successfully deleted key".bright_green(),
+                    key.bright_cyan().bold()
+                );
+            } else {
+                println!(
+                    "{} {} {}",
+                    "!".bright_yellow().bold(),
+                    "Key not found:".bright_yellow(),
+                    key.bright_cyan().bold()
+                );
+            }
+        }
+        Err(e) => {
+            println!(
+                "{} {} {} {}",
+                "✗".bright_red().bold(),
+                "Failed to delete key".bright_red(),
+                key.bright_cyan().bold(),
+                e.to_string().red()
+            );
+        }
+    }
+}
+
+fn cmd_search(viewer: &mut SledViewer, pattern: &str, is_regex: bool) -> Result<()> {
+    let results = viewer.search_values(pattern, is_regex)?;
+    if results.is_empty() {
+        println!("{}", "No values found matching the pattern.".yellow());
+    } else {
+        let total_count = results.len();
+        let display_results = if total_count > 50 {
+            &results[0..50]
+        } else {
+            &results[..]
+        };
+        println!(
+            "{} {} {}",
+            "Found".bright_blue(),
+            total_count.to_string().bright_yellow().bold(),
+            "matches:".bright_blue()
+        );
+        for (i, pair) in display_results.iter().enumerate() {
+            println!(
+                "  {}: {} {} {}",
+                (i + 1).to_string().bright_black(),
+                pair.key.bright_cyan().bold(),
+                "=>".bright_black(),
+                truncate_value(&pair.value, 100).bright_white()
+            );
+        }
+        if total_count > 50 {
+            println!(
+                "{}",
+                format!(
+                    "... and {} more matches (showing first 50)",
+                    total_count - 50
+                )
+                .bright_yellow()
+            );
+        }
+    }
+    Ok(())
+}
+
+fn cmd_trees(viewer: &mut SledViewer, pattern: &str, is_regex: bool) -> Result<()> {
+    let trees = viewer.list_trees(pattern, is_regex)?;
+    if trees.is_empty() {
+        println!("{}", "No trees found matching the pattern.".yellow());
+    } else {
+        let total_count = trees.len();
+        let display_trees = if total_count > 50 {
+            &trees[0..50]
+        } else {
+            &trees
+        };
+
+        println!(
+            "{} {} {}",
+            "Found".bright_blue(),
+            total_count.to_string().bright_yellow().bold(),
+            "trees:".bright_blue()
+        );
+
+        for tree_name in display_trees {
+            println!("  {}", tree_name.bright_cyan());
+        }
+
+        if total_count > 50 {
+            println!(
+                "{}",
+                format!("... and {} more trees (showing first 50)", total_count - 50)
+                    .bright_yellow()
+            );
+        }
+    }
+    Ok(())
+}
+
+fn cmd_unselect(viewer: &mut SledViewer) -> Result<()> {
+    let was_selected = viewer.unselect_tree()?;
+    if was_selected {
+        println!(
+            "{} {}",
+            "✓".bright_green().bold(),
+            "Tree unselected. Now working with the default tree.".bright_green()
+        );
+    } else {
+        println!(
+            "{} {}",
+            "!".bright_yellow().bold(),
+            "No tree was previously selected.".bright_yellow()
+        );
+    }
+    Ok(())
+}
+
+fn cmd_select(viewer: &mut SledViewer, tree: &str) {
+    match viewer.select_tree(tree) {
+        Ok(()) => {
+            println!(
+                "{} {} {}",
+                "✓".bright_green().bold(),
+                "Selected tree:".bright_green(),
+                tree.bright_cyan().bold()
+            );
+        }
+        Err(e) => {
+            println!(
+                "{} {} {} {}",
+                "✗".bright_red().bold(),
+                "Failed to select tree".bright_red(),
+                tree.bright_cyan().bold(),
+                e.to_string().red()
+            );
+        }
     }
 }
 
@@ -616,6 +655,7 @@ fn print_help() {
         "{:<25} Search values matching regex pattern",
         "search regex <regex>".bright_green().bold()
     );
+    println!("{:<25} Clear the screen", "clear".bright_green().bold());
     println!(
         "{:<25} Show this help message",
         "help".bright_green().bold()

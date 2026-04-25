@@ -2,9 +2,18 @@ use tempfile::TempDir;
 
 /// Creates a temporary SLED database for testing
 pub fn create_test_db() -> TempDir {
+    create_test_db_with_compression(false)
+}
+
+/// Creates a temporary compressed SLED database for testing
+pub fn create_test_db_with_compression(compression: bool) -> TempDir {
     let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
     {
-        let db = sled::open(temp_dir.path()).expect("Failed to create test database");
+        let db = sled::Config::new()
+            .use_compression(compression)
+            .path(temp_dir.path())
+            .open()
+            .expect("Failed to create test database");
 
         // Populate with test data
         db.insert(b"user_001", b"John Doe").unwrap();
