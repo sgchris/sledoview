@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-04-25
+
+### Added
+- SLED database compression support via the new default `compression` cargo feature, allowing SledoView to open and work with databases created using `use_compression(true)`
+
 ### Changed
 - Library-facing database and validator APIs now return `SledoViewError` directly instead of erasing errors into `anyhow` through the core layers
 - CLI key validation now accepts printable UTF-8 text keys while keeping the existing key length cap as a CLI policy
@@ -134,7 +139,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Example database creation script
 - Full command reference with examples
 
-[Unreleased]: https://github.com/sgchris/sledoview/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/sgchris/sledoview/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/sgchris/sledoview/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/sgchris/sledoview/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/sgchris/sledoview/compare/v0.1.0...v1.0.3
 [0.1.0]: https://github.com/sgchris/sledoview/releases/tag/v0.1.0
