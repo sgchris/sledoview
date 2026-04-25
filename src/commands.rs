@@ -238,7 +238,13 @@ impl Command {
                 "exit | quit | q",
                 |_| Command::Exit,
             )),
-            "clear" => Some(Command::Clear),
+            "clear" => Some(parse_fixed_arity_command(
+                &args,
+                1,
+                "Invalid arguments for 'clear'.",
+                "clear",
+                |_| Command::Clear,
+            )),
             _ => None,
         }
     }
@@ -300,7 +306,10 @@ impl Command {
                 println!("  {} {}", "Usage:".bright_blue(), usage.bright_white());
             }
             Command::Clear => {
-                println!("\x1B[2J");
+                print!("\x1B[2J\x1B[3J\x1B[H");
+                // Flush the buffer to ensure the command is immediately sent.
+                let mut stdout = std::io::stdout();
+                std::io::Write::flush(&mut stdout).unwrap();
             }
         }
         Ok(())
@@ -646,6 +655,7 @@ fn print_help() {
         "{:<25} Search values matching regex pattern",
         "search regex <regex>".bright_green().bold()
     );
+    println!("{:<25} Clear the screen", "clear".bright_green().bold());
     println!(
         "{:<25} Show this help message",
         "help".bright_green().bold()
