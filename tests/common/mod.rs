@@ -27,6 +27,38 @@ pub fn create_test_db() -> TempDir {
     temp_dir
 }
 
+/// Creates a temporary compressed SLED database for testing
+#[cfg(feature = "compression")]
+pub fn create_compressed_test_db() -> TempDir {
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+    {
+        let db = sled::Config::new()
+            .use_compression(true)
+            .path(temp_dir.path())
+            .open()
+            .expect("Failed to create test database");
+
+        // Populate with test data
+        db.insert(b"user_001", b"John Doe").unwrap();
+        db.insert(b"user_002", b"Jane Smith").unwrap();
+        db.insert(b"user_003", b"Bob Johnson").unwrap();
+        db.insert(b"config_theme", b"dark").unwrap();
+        db.insert(b"config_language", b"en-US").unwrap();
+        db.insert(b"session_abc123", b"2024-01-01T10:00:00Z")
+            .unwrap();
+        db.insert(b"session_def456", b"2024-01-01T11:00:00Z")
+            .unwrap();
+        db.insert(b"email_john", b"john@example.com").unwrap();
+        db.insert(b"email_jane", b"jane@example.com").unwrap();
+        db.insert(b"data_binary", &[0u8, 1, 2, 3, 255]).unwrap();
+
+        // Flush to ensure data is written
+        db.flush().unwrap();
+    } // Database is dropped here, releasing the lock
+
+    temp_dir
+}
+
 /// Creates an empty temporary SLED database
 pub fn create_empty_test_db() -> TempDir {
     let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");

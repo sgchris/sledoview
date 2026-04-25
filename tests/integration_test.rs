@@ -68,6 +68,17 @@ fn test_sled_viewer_list_keys_all() {
 }
 
 #[test]
+#[cfg(feature = "compression")]
+fn test_sled_viewer_list_keys_all_compressed() {
+    let temp_dir = common::create_compressed_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+    let keys = viewer.list_keys("*", false).unwrap();
+    assert_eq!(keys.len(), 10);
+    assert!(keys.contains(&"user_001".to_string()));
+    assert!(keys.contains(&"config_theme".to_string()));
+}
+
+#[test]
 fn test_sled_viewer_list_keys_pattern() {
     let temp_dir = common::create_test_db();
     let viewer = SledViewer::new(temp_dir.path()).unwrap();
@@ -162,6 +173,26 @@ fn test_cli_nonexistent_database() {
 #[test]
 fn test_sled_viewer_set_key() {
     let temp_dir = common::create_test_db();
+    let viewer = SledViewer::new(temp_dir.path()).unwrap();
+
+    // Test setting a new key
+    assert!(viewer.set_key("new_test_key", "new_test_value").is_ok());
+
+    // Verify the key was set
+    let key_info = viewer.get_key("new_test_key").unwrap();
+    assert_eq!(key_info.key, "new_test_key");
+    assert_eq!(key_info.value, "new_test_value");
+
+    // Test updating an existing key
+    assert!(viewer.set_key("user_001", "Updated John Doe").is_ok());
+    let key_info = viewer.get_key("user_001").unwrap();
+    assert_eq!(key_info.value, "Updated John Doe");
+}
+
+#[test]
+#[cfg(feature = "compression")]
+fn test_sled_viewer_set_key_compressed() {
+    let temp_dir = common::create_compressed_test_db();
     let viewer = SledViewer::new(temp_dir.path()).unwrap();
 
     // Test setting a new key
