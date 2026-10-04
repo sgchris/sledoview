@@ -52,14 +52,3 @@ This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-M
 - [SLED database](https://github.com/spacejam/sled) - The embedded database that makes this tool possible
 
 
-<!-- Security scan triggered at 2026-08-31 17:21:13 -->
-
-<!-- Security scan triggered at 2026-08-31 16:56:36 -->
-
-<!-- Security scan triggered at 2026-08-31 18:34:41 -->
-
-<!-- Security scan triggered at 2026-09-02 06:53:06 -->
-
-<!-- Security scan triggered at 2026-09-04 13:00:50 -->
-
-<!-- Security scan triggered at 2026-09-08 02:18:13 -->
