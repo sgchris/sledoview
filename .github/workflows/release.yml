@@ -21,10 +21,14 @@
 # * Installers are never piped into a shell. The packager is built from
 #   source with the Rust toolchain, which is provided by the runner image
 #   or by a pinned toolchain action.
-# * Planning and building run without any token, so manifests, logs, and
-#   stored files in those jobs cannot carry credentials.
-# * Stored files are limited to manifests and built release assets with
-#   short retention. No home-directory or credential paths are stored.
+# * Planning publishes only the build matrix and run-mode fields (not the
+#   whole manifest), and planning/building run without any token, so
+#   results, logs, and stored files in those jobs cannot carry credentials.
+# * Stored files use static paths limited to manifests and the build output
+#   directory, with short retention. No home-directory or credential paths
+#   are stored.
+# * Every third-party action is pinned to a full commit SHA (version kept
+#   in a trailing comment).
 
 name: Release
 permissions: {}
@@ -67,12 +71,13 @@ jobs:
     runs-on: "ubuntu-22.04"
     timeout-minutes: 10
     outputs:
-      val: ${{ steps.plan.outputs.manifest }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      pr-mode: ${{ steps.plan.outputs.pr_mode }}
       tag: ${{ !github.event.pull_request && github.ref_name || '' }}
       tag-flag: ${{ !github.event.pull_request && format('--tag={0}', github.ref_name) || '' }}
       publishing: ${{ !github.event.pull_request }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           submodules: recursive
@@ -95,14 +100,15 @@ jobs:
           set -euo pipefail
           dist plan --output-format=json > plan-dist-manifest.json
       - id: plan
-        # Credential-free step: publishes the manifest without any
-        # credentials in scope.
+        # Credential-free step: publishes only the two machine-readable
+        # fields the builds need, not the whole manifest.
         run: |
           set -euo pipefail
-          echo "manifest=$(jq -c '.' plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -c '.ci.github.artifacts_matrix' plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
+          echo "pr_mode=$(jq -r '.ci.github.pr_run_mode // ""' plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
       - name: "Upload dist-manifest.json"
         # Credential-free job, so stored files cannot carry credentials.
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: artifacts-plan-dist-manifest
           path: plan-dist-manifest.json
@@ -121,7 +127,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           submodules: recursive
@@ -149,7 +155,7 @@ jobs:
     # Let the initial task tell us to not run (currently very blunt)
     needs:
       - plan
-    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
+    if: ${{ fromJson(needs.plan.outputs.matrix).include != null && (needs.plan.outputs.publishing == 'true' || needs.plan.outputs.pr-mode == 'upload') }}
     strategy:
       fail-fast: false
       # Target platforms/runners are computed by dist in create-release.
@@ -162,7 +168,7 @@ jobs:
       # Typically there will be:
       # - 1 "global" task that builds universal installers
       # - N "local" tasks that build each platform's binaries and platform-specific installers
-      matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     container: ${{ matrix.container && matrix.container.image || null }}
@@ -173,14 +179,14 @@ jobs:
       - name: enable windows longpaths
         run: |
           git config --global core.longpaths true
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           submodules: recursive
       - name: Set up Rust toolchain if not already installed
         if: ${{ matrix.container }}
         # Pinned toolchain action instead of a remote install script.
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
       - name: Install dist
         # Source build; runs with no credentials in scope. The generated
         # per-platform installer snippet is intentionally not executed, so
@@ -191,7 +197,7 @@ jobs:
           cargo install cargo-dist --version 0.29.0 --locked --force
       # Get the dist-manifest
       - name: Fetch local artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: artifacts-*
           path: target/distrib/
@@ -210,28 +216,22 @@ jobs:
           else
             dist build --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           fi
-      - id: cargo-dist
-        name: Post-build
+      - name: Post-build
         # We force bash here just because github makes it really hard to get values up
         # to "real" actions without writing to env-vars, and writing to env-vars has
         # inconsistent syntax between shell and powershell.
         shell: bash
         run: |
           set -euo pipefail
-          # Parse out what we just built and stage it for scratch storage
-          echo "paths<<EOF" >> "$GITHUB_OUTPUT"
-          dist print-upload-files-from-manifest --manifest dist-manifest.json >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
+          # Stage the manifest next to the built files; the whole output
+          # directory is stored as one static path below.
           cp dist-manifest.json "$BUILD_MANIFEST_NAME"
       - name: "Upload artifacts"
-        # Credential-free job; only built release assets plus the manifest.
-        uses: actions/upload-artifact@v4
+        # Credential-free job; only the static build output directory.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: artifacts-build-local-${{ join(matrix.targets, '_') }}
-          path: |
-            ${{ steps.cargo-dist.outputs.paths }}
-            ${{ env.BUILD_MANIFEST_NAME }}
+          path: target/distrib/
           if-no-files-found: error
           retention-days: 7
 
@@ -249,7 +249,7 @@ jobs:
       BUILD_MANIFEST_NAME: target/distrib/global-dist-manifest.json
     # No credentials in this job; global build is local-only.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           submodules: recursive
@@ -261,12 +261,12 @@ jobs:
           cargo install cargo-dist --version 0.29.0 --locked --force
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
       - name: Fetch local artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: artifacts-*
           path: target/distrib/
           merge-multiple: true
-      - id: cargo-dist
+      - name: Stage global manifest
         shell: bash
         env:
           DIST_TAG_FLAG: ${{ needs.plan.outputs.tag-flag }}
@@ -279,19 +279,14 @@ jobs:
             dist build --output-format=json "--artifacts=global" > dist-manifest.json
           fi
 
-          # Parse out what we just built and stage it for scratch storage
-          echo "paths<<EOF" >> "$GITHUB_OUTPUT"
-          jq --raw-output ".upload_files[]" dist-manifest.json >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
+          # Stage the manifest next to the built files; the whole output
+          # directory is stored as one static path below.
           cp dist-manifest.json "$BUILD_MANIFEST_NAME"
       - name: "Upload artifacts"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: artifacts-build-global
-          path: |
-            ${{ steps.cargo-dist.outputs.paths }}
-            ${{ env.BUILD_MANIFEST_NAME }}
+          path: target/distrib/
           if-no-files-found: error
           retention-days: 7
   # Determines if we should publish/announce.
@@ -310,7 +305,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           submodules: recursive
@@ -322,7 +317,7 @@ jobs:
           cargo install cargo-dist --version 0.29.0 --locked --force
       # Fetch artifacts from scratch-storage
       - name: Fetch artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: artifacts-*
           path: target/distrib/
@@ -342,7 +337,7 @@ jobs:
           fi
       # Create a GitHub Release while uploading all files to it
       - name: "Download GitHub Artifacts"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: artifacts-*
           path: artifacts
@@ -389,7 +384,7 @@ jobs:
     timeout-minutes: 5
     # Credential-free: this job only checks out.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           submodules: recursive
