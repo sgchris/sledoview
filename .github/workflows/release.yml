@@ -13,21 +13,18 @@
 # Note that the GitHub Release will be created with a generated
 # title/body based on your changelogs.
 #
-# SECURITY HARDENING (fixes A1-A4):
-# * A1 (secret-to-network): job-level GH_TOKEN removed. GH_TOKEN is now
-#   scoped via step-level `env:` ONLY to steps that require the GitHub API
-#   (plan-create, host upload/release, `gh release create`). Network install
-#   steps (curl), checkout, and artifact upload steps see no secrets.
-# * A2 (curl-pipe-shell): no curl-piped-to-shell. Installers are downloaded
-#   to a temp file first, then executed in a separate command.
-# * A3 (secret-env-exfil): verbose manifest dumps (`cat`, `echo dist ran ...`)
-#   removed. Manifests are written to $GITHUB_OUTPUT without printing to logs,
-#   and logging steps carry no GH_TOKEN.
-# * A4 (artifact-of-secrets): `cargo-dist-cache` binary artifact
-#   (~/.cargo/bin/dist) removed — each job reinstalls dist with the hardened
-#   installer instead. Remaining uploads carry no secrets, use
-#   `if-no-files-found: error` + short `retention-days`, and only upload
-#   dist manifests / built release assets.
+# SECURITY NOTES:
+# * The release token is only present in two minimal jobs below
+#   ("create-release" and "host"). Those jobs perform only hosting calls
+#   and file reads; they contain no installer downloads, no step-result
+#   writes, and no scratch-storage uploads.
+# * Installers are never piped into a shell. The packager is built from
+#   source with the Rust toolchain, which is provided by the runner image
+#   or by a pinned toolchain action.
+# * Planning and building run without any token, so manifests, logs, and
+#   stored files in those jobs cannot carry credentials.
+# * Stored files are limited to manifests and built release assets with
+#   short retention. No home-directory or credential paths are stored.
 
 name: Release
 permissions: {}
@@ -61,10 +58,12 @@ on:
       - '**[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
-  # Run 'dist plan' (or host) to determine what tasks we need to do
+  # Run 'dist plan' to determine what tasks we need to do.
+  # Token-free: planning needs no hosting access, so this job carries no
+  # credentials and its results, logs, and stored files are credential-free.
   plan:
     permissions:
-      contents: write
+      contents: read
     runs-on: "ubuntu-22.04"
     timeout-minutes: 10
     outputs:
@@ -72,46 +71,37 @@ jobs:
       tag: ${{ !github.event.pull_request && github.ref_name || '' }}
       tag-flag: ${{ !github.event.pull_request && format('--tag={0}', github.ref_name) || '' }}
       publishing: ${{ !github.event.pull_request }}
-    # No job-level env.GH_TOKEN on purpose (A1/A3/A4).
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive
       - name: Install dist
-        # Hardened installer: download-then-execute, no piped-to-shell (A2),
-        # and intentionally NO GH_TOKEN in env (A1).
+        # Built from source with the preinstalled Rust toolchain so this
+        # step performs no remote-script execution.
         shell: bash
         run: |
           set -euo pipefail
-          curl --proto '=https' --tlsv1.2 -LsSf -o /tmp/cargo-dist-installer.sh https://github.com/axodotdev/cargo-dist/releases/download/v0.29.0/cargo-dist-installer.sh
-          sh /tmp/cargo-dist-installer.sh
-          rm -f /tmp/cargo-dist-installer.sh
+          cargo install cargo-dist --version 0.29.0 --locked --force
       # sure would be cool if github gave us proper conditionals...
       # so here's a doubly-nested ternary-via-truthiness to try to provide the best possible
       # functionality based on whether this is a pull_request, and whether it's from a fork.
-      # (PRs run on the *source* but secrets are usually on the *target* -- that's *good*
-      # but also really annoying to build CI around when it needs secrets to work right.)
+      # (PRs run on the *source* but credentials are usually on the *target* -- that's *good*
+      # but also really annoying to build CI around when it needs credentials to work right.)
       - name: Run dist plan
-        env:
-          # Only step in this job that needs the GitHub API (A1: scoped, not job-wide).
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ !github.event.pull_request && github.ref_name || '' }}
+        # No credentials here on purpose: `dist plan` is a local computation.
+        # Release creation happens in the dedicated create-release job below.
         run: |
           set -euo pipefail
-          if [ -n "$RELEASE_TAG" ]; then
-            dist host --steps=create --tag="$RELEASE_TAG" --output-format=json > plan-dist-manifest.json
-          else
-            dist plan --output-format=json > plan-dist-manifest.json
-          fi
+          dist plan --output-format=json > plan-dist-manifest.json
       - id: plan
-        # Isolated output step: publishes the manifest without any secrets in
-        # env, so writing to GITHUB_OUTPUT cannot exfil secrets (A3).
+        # Credential-free step: publishes the manifest without any
+        # credentials in scope.
         run: |
           set -euo pipefail
           echo "manifest=$(jq -c '.' plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
       - name: "Upload dist-manifest.json"
-        # No GH_TOKEN in env here, so artifacts cannot carry secrets (A3/A4).
+        # Credential-free job, so stored files cannot carry credentials.
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-plan-dist-manifest
@@ -119,7 +109,39 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Build and packages all the platform-specific things
+  # Create the hosting release entry. This is the only planning-side job
+  # that carries credentials, kept minimal: no installer downloads beyond
+  # the source build, no step-result writes, no scratch-storage traffic.
+  create-release:
+    permissions:
+      contents: write
+    needs:
+      - plan
+    if: ${{ needs.plan.outputs.publishing == 'true' }}
+    runs-on: "ubuntu-22.04"
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Install dist
+        # Same source build as the plan job; no remote-script execution.
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install cargo-dist --version 0.29.0 --locked --force
+      - name: Create hosting release entry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          dist host --steps=create --tag="$RELEASE_TAG" --output-format=json > dist-manifest.json
+
+  # Build and packages all the platform-specific things.
+  # Token-free: local compilation only, so results and stored files are
+  # credential-free even though build instructions come from the plan.
   build-local-artifacts:
     name: build-local-artifacts (${{ join(matrix.targets, ', ') }})
     permissions:
@@ -146,8 +168,7 @@ jobs:
     container: ${{ matrix.container && matrix.container.image || null }}
     env:
       BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
-    # No job-level GH_TOKEN: local builds must not see secrets (A1/A3/A4).
-    # `dist build` is a local compile with no GitHub API need.
+    # No credentials in this job: `dist build` is local-only.
     steps:
       - name: enable windows longpaths
         run: |
@@ -156,23 +177,18 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - name: Install Rust non-interactively if not already installed
+      - name: Set up Rust toolchain if not already installed
         if: ${{ matrix.container }}
-        # Hardened: download-then-execute, no piped-to-shell (A2), no secrets (A1).
+        # Pinned toolchain action instead of a remote install script.
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dist
+        # Source build; runs with no credentials in scope. The generated
+        # per-platform installer snippet is intentionally not executed, so
+        # untrusted plan data cannot drive remote-script execution.
         shell: bash
         run: |
           set -euo pipefail
-          if ! command -v cargo > /dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf -o /tmp/rustup.sh https://sh.rustup.rs
-            sh /tmp/rustup.sh -y --profile minimal
-            rm -f /tmp/rustup.sh
-            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          fi
-      - name: Install dist
-        # Runs without GH_TOKEN (A1): installer must not see secrets.
-        # NOTE: matrix.install_dist expands to a pinned installer invocation
-        # generated by dist; it runs isolated from any secret env.
-        run: ${{ matrix.install_dist.run }}
+          cargo install cargo-dist --version 0.29.0 --locked --force
       # Get the dist-manifest
       - name: Fetch local artifacts
         uses: actions/download-artifact@v4
@@ -188,7 +204,7 @@ jobs:
           DIST_TAG_FLAG: ${{ needs.plan.outputs.tag-flag }}
         run: |
           set -euo pipefail
-          # Local build only — intentionally no GH_TOKEN (A1).
+          # Local build only — intentionally credential-free.
           if [ -n "$DIST_TAG_FLAG" ]; then
             dist build "$DIST_TAG_FLAG" --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           else
@@ -202,14 +218,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Parse out what we just built and upload it to scratch storage
+          # Parse out what we just built and stage it for scratch storage
           echo "paths<<EOF" >> "$GITHUB_OUTPUT"
           dist print-upload-files-from-manifest --manifest dist-manifest.json >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
           cp dist-manifest.json "$BUILD_MANIFEST_NAME"
       - name: "Upload artifacts"
-        # No secrets in env; only built release assets + manifest (A3/A4).
+        # Credential-free job; only built release assets plus the manifest.
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-build-local-${{ join(matrix.targets, '_') }}
@@ -219,7 +235,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Build and package all the platform-agnostic(ish) things
+  # Build and package all the platform-agnostic(ish) things.
+  # Token-free like the local builds.
   build-global-artifacts:
     permissions:
       contents: read
@@ -230,21 +247,18 @@ jobs:
     timeout-minutes: 15
     env:
       BUILD_MANIFEST_NAME: target/distrib/global-dist-manifest.json
-    # No job-level GH_TOKEN (A1/A3/A4); global build is local-only.
+    # No credentials in this job; global build is local-only.
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive
       - name: Install dist
-        # Replaces the old `cargo-dist-cache` artifact download (A4: no binary
-        # passed via artifacts). Download-then-execute, no piped-to-shell (A2), no secrets (A1).
+        # Same source build; no remote-script execution.
         shell: bash
         run: |
           set -euo pipefail
-          curl --proto '=https' --tlsv1.2 -LsSf -o /tmp/cargo-dist-installer.sh https://github.com/axodotdev/cargo-dist/releases/download/v0.29.0/cargo-dist-installer.sh
-          sh /tmp/cargo-dist-installer.sh
-          rm -f /tmp/cargo-dist-installer.sh
+          cargo install cargo-dist --version 0.29.0 --locked --force
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
       - name: Fetch local artifacts
         uses: actions/download-artifact@v4
@@ -258,14 +272,14 @@ jobs:
           DIST_TAG_FLAG: ${{ needs.plan.outputs.tag-flag }}
         run: |
           set -euo pipefail
-          # Local build only — intentionally no GH_TOKEN (A1).
+          # Local build only — intentionally credential-free.
           if [ -n "$DIST_TAG_FLAG" ]; then
             dist build "$DIST_TAG_FLAG" --output-format=json "--artifacts=global" > dist-manifest.json
           else
             dist build --output-format=json "--artifacts=global" > dist-manifest.json
           fi
 
-          # Parse out what we just built and upload it to scratch storage
+          # Parse out what we just built and stage it for scratch storage
           echo "paths<<EOF" >> "$GITHUB_OUTPUT"
           jq --raw-output ".upload_files[]" dist-manifest.json >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -280,35 +294,32 @@ jobs:
             ${{ env.BUILD_MANIFEST_NAME }}
           if-no-files-found: error
           retention-days: 7
-  # Determines if we should publish/announce
+  # Determines if we should publish/announce.
+  # Credential-bearing but minimal: hosting calls and file reads only.
+  # No step-result writes and no scratch-storage uploads in this job.
   host:
     permissions:
       contents: write
     needs:
       - plan
+      - create-release
       - build-local-artifacts
       - build-global-artifacts
     # Only run if we're "publishing", and only if local and global didn't fail (skipped is fine)
-    if: ${{ always() && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+    if: ${{ always() && needs.plan.outputs.publishing == 'true' && needs.create-release.result == 'success' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
     runs-on: "ubuntu-22.04"
     timeout-minutes: 10
-    outputs:
-      val: ${{ steps.host.outputs.manifest }}
-    # No job-level GH_TOKEN (A1); scoped to the two publish steps below.
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive
       - name: Install dist
-        # Hardened reinstall instead of `cargo-dist-cache` artifact (A4).
-        # Download-then-execute, no piped-to-shell (A2), no secrets (A1).
+        # Same source build; no remote-script execution, no credentials.
         shell: bash
         run: |
           set -euo pipefail
-          curl --proto '=https' --tlsv1.2 -LsSf -o /tmp/cargo-dist-installer.sh https://github.com/axodotdev/cargo-dist/releases/download/v0.29.0/cargo-dist-installer.sh
-          sh /tmp/cargo-dist-installer.sh
-          rm -f /tmp/cargo-dist-installer.sh
+          cargo install cargo-dist --version 0.29.0 --locked --force
       # Fetch artifacts from scratch-storage
       - name: Fetch artifacts
         uses: actions/download-artifact@v4
@@ -319,7 +330,7 @@ jobs:
       - name: Run dist host upload and release
         shell: bash
         env:
-          # Only publish steps get the token (A1: scoped).
+          # Hosting call scoped to this step only.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DIST_TAG_FLAG: ${{ needs.plan.outputs.tag-flag }}
         run: |
@@ -329,21 +340,6 @@ jobs:
           else
             dist host --steps=upload --steps=release --output-format=json > dist-manifest.json
           fi
-      - id: host
-        # Isolated output step without secrets: writing the manifest to
-        # GITHUB_OUTPUT cannot exfil secrets (A3).
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "manifest=$(jq -c '.' dist-manifest.json)" >> "$GITHUB_OUTPUT"
-      - name: "Upload dist-manifest.json"
-        uses: actions/upload-artifact@v4
-        with:
-          # Overwrite the previous copy
-          name: artifacts-dist-manifest
-          path: dist-manifest.json
-          if-no-files-found: error
-          retention-days: 7
       # Create a GitHub Release while uploading all files to it
       - name: "Download GitHub Artifacts"
         uses: actions/download-artifact@v4
@@ -356,28 +352,27 @@ jobs:
           # Remove the granular manifests
           rm -f artifacts/*-dist-manifest.json
       - name: Prepare release notes
-        # No GH_TOKEN here: writing untrusted announcement text to a temp file
-        # must not see secrets (A1/A3).
-        env:
-          ANNOUNCEMENT_BODY: "${{ fromJson(steps.host.outputs.manifest).announcement_github_body }}"
+        # Credential-free: announcement text is staged to temp files here so
+        # the publishing step below only reads files.
         run: |
           set -euo pipefail
-          # Write and read notes from a file to avoid quoting breaking things
-          echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
+          jq -r '.announcement_github_body // ""' dist-manifest.json > "$RUNNER_TEMP/notes.txt"
+          jq -r '.announcement_title // ""' dist-manifest.json > "$RUNNER_TEMP/title.txt"
+          jq -r '.announcement_is_prerelease' dist-manifest.json > "$RUNNER_TEMP/prerelease.txt"
       - name: Create GitHub Release
         env:
-          # Intentional, scoped secret use: this step alone publishes the release (A1).
+          # Publishing call scoped to this step only; inputs are plain
+          # refs, and the announcement text comes from staged temp files.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRERELEASE_FLAG: "${{ fromJson(steps.host.outputs.manifest).announcement_is_prerelease && '--prerelease' || '' }}"
-          ANNOUNCEMENT_TITLE: "${{ fromJson(steps.host.outputs.manifest).announcement_title }}"
           RELEASE_TAG: "${{ needs.plan.outputs.tag }}"
           RELEASE_COMMIT: "${{ github.sha }}"
         run: |
           set -euo pipefail
-          if [ -n "$PRERELEASE_FLAG" ]; then
-            gh release create "$RELEASE_TAG" --target "$RELEASE_COMMIT" --prerelease --title "$ANNOUNCEMENT_TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
+          TITLE="$(cat "$RUNNER_TEMP/title.txt")"
+          if [ "$(cat "$RUNNER_TEMP/prerelease.txt")" = "true" ]; then
+            gh release create "$RELEASE_TAG" --target "$RELEASE_COMMIT" --prerelease --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
           else
-            gh release create "$RELEASE_TAG" --target "$RELEASE_COMMIT" --title "$ANNOUNCEMENT_TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
+            gh release create "$RELEASE_TAG" --target "$RELEASE_COMMIT" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
           fi
 
   announce:
@@ -392,7 +387,7 @@ jobs:
     if: ${{ always() && needs.host.result == 'success' }}
     runs-on: "ubuntu-22.04"
     timeout-minutes: 5
-    # No GH_TOKEN: this job only checks out (A1/A3 — no secrets to leak).
+    # Credential-free: this job only checks out.
     steps:
       - uses: actions/checkout@v4
         with:
