@@ -139,7 +139,7 @@ jobs:
           cargo install cargo-dist --version 0.29.0 --locked --force
       - name: Create hosting release entry
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
           set -euo pipefail
@@ -326,7 +326,7 @@ jobs:
         shell: bash
         env:
           # Hosting call scoped to this step only.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           DIST_TAG_FLAG: ${{ needs.plan.outputs.tag-flag }}
         run: |
           set -euo pipefail
@@ -358,7 +358,7 @@ jobs:
         env:
           # Publishing call scoped to this step only; inputs are plain
           # refs, and the announcement text comes from staged temp files.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: "${{ needs.plan.outputs.tag }}"
           RELEASE_COMMIT: "${{ github.sha }}"
         run: |
